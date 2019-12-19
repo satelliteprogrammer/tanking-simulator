@@ -1,3 +1,4 @@
+from collections import deque
 import encounter
 import units
 
@@ -7,7 +8,9 @@ def run(fight : encounter.Fight):
     r = 0
 
     while r < R:
-        for t in encounter.trange(fight.duration):
+        events = deque()
+        fight.initialize(events)
+        while len(events) > 0:
             do(t)
 
         r += 1

@@ -1,13 +1,20 @@
 class Boss:
 
-    def __init__(self, name, damage, atk_speed, school, abilities = ()):
+    def __init__(self, name, damage, speed, school, abilities=None):
         self.name = name
         self.damage = damage
-        self.atk_speed = atk_speed
+        self.speed = speed
         self.school = school
         self.abilities = abilities
 
-        self.atk_timer = 0
+    def attack(self):
+        return self.damage
+
+    def ability(self, name):
+        if self.abilities is not None:
+            return self.abilities[name].apply()
+        else:
+            return 0
 
 
 class Tank:
