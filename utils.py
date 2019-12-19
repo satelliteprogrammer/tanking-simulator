@@ -1,28 +1,24 @@
+from dataclasses import dataclass
 from enum import Enum
 
 
-class Buff():
+@dataclass(eq=False)
+class Stats:
+    __slots__ = 'stamina', 'agility', 'strength', 'defense', 'miss', 'dodge', 'parry', 'block', 'block_value', 'armor',\
+                'hit', 'expertise'
 
-    def __init__(self, name, algebra, stamina, agility, strength, intellect, spirit):
-        self.name = name
-        self.algebra = algebra
-        self.stamina = stamina
-        self.agility = agility
-        self.strength = strength
-        self.intellect = intellect
-        self.spirit = spirit
-
-
-class Debuff():
-
-    def __init__(self, name, algebra, stamina, agility, strength, intellect, spirit):
-        self.name = name
-        self.algebra = algebra
-        self.stamina = stamina
-        self.agility = agility
-        self.strength = strength
-        self.intellect = intellect
-        self.spirit = spirit
+    stamina: float
+    agility: float
+    strength: float
+    defense: float
+    miss: float
+    dodge: float
+    parry: float
+    block: float
+    block_value: int
+    armor: int
+    hit: int
+    expertise: int
 
 
 class Order(Enum):
