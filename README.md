@@ -10,14 +10,9 @@ This project is still in early development.
 
 The simulation runs for `R` iterations, which could be decided based on _ìnsert statistical measure_ convergence.
 
-There are three ways of achieving a timeline:
-
-1. The fighting is simulated be retrieving the next `EventTime = namedtuple('Event', 'time')` tuple from the
-top of a list of events
-
-2. Discretizing time using an acceptable grid where ΔT < 10x minimum time between events. [ref]
-
-3. Interrupt driven architecture.
+The fighting is simulated be retrieving the next `EventTime = namedtuple('Event', 'time')` tuple from the
+top of a list of events. This list of event is an approximate FIFO queue, implemented with a `deque` from the collections library.
+The next event from the queue is retrieved plus all event occurring at the same time.
 
 In all these scenarios there will be critical events where healing will occur at the same as damage taken.
 While the time tuning can decrease the number of these singularities, a lenience value can be used to either favor
