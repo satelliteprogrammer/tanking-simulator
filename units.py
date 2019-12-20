@@ -57,20 +57,24 @@ class Tank:
         self.stats = Stats(stamina, agility, strength, self.base_defense, self.base_miss, self.base_dodge,
                            self.base_parry, self.base_block, self.base_block_value, armor, hit, expertise)
 
-        self.talents = talents
-        for talent in talents:
-            talent.apply(self.stats)
-
         self.buffs = buffs
         for buff in buffs:
             buff.apply(self.stats)
 
+        self.talents = talents
+        for talent in talents:
+            talent.apply(self.stats)
+
+        for buff in buffs:
+            if isinstance(buff, b.BoK):
+                b.BoK.after(self.stats)
+
         self.stats.defense += defense_rating / self.def_def_ratio
         self.stats.miss += (self.stats.defense - 73 * 5) * .04
         self.stats.dodge += self.stats.agility / self.agi_dodge_ratio + dodge_rating / self.dodge_dodge_ratio + \
-                            Tank.defense_contribution(self.stats.defense, 73)
-        self.stats.parry += parry_rating / self.parry_parry_ratio + Tank.defense_contribution(self.stats.defense, 73)
-        self.stats.block += block_rating / self.block_block_ratio + Tank.defense_contribution(self.stats.defense, 73)
+                            Tank.__defense_contribution(self.stats.defense, 73)
+        self.stats.parry += parry_rating / self.parry_parry_ratio + Tank.__defense_contribution(self.stats.defense, 73)
+        self.stats.block += block_rating / self.block_block_ratio + Tank.__defense_contribution(self.stats.defense, 73)
         self.stats.block_value += block_value
 
         self.speed = speed
@@ -79,14 +83,17 @@ class Tank:
         return floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10)
 
     @staticmethod
-    def defense_contribution(defense: float, level: int) -> float:
+    def __defense_contribution(defense: float, level: int) -> float:
         return (floor(defense) - level * 5) * 0.04
 
     def get_armor_reduction(self, level: int) -> float:
         """attacker 60+: DR% = Armor / (Armor + 400 + 85 * (AttackerLevel + 4.5 * (AttackerLevel - 59)))"""
-        return self.stats.armor / (self.stats.armor + 467.5 * level - 22167.5)
+        return (self.stats.armor / (self.stats.armor + 467.5 * level - 22167.5))/100
 
-    def get_attack_speed(self):
+    def get_block_reduction(self) -> int:
+        pass
+
+    def attack(self):
         return self.speed
 
 
@@ -97,7 +104,7 @@ class PaladinTank(Tank):
     def get_block_reduction(self) -> int:
         br = self.stats.block_value + self.stats.strength / 20
         for talent in self.talents:
-            if isinstance(talent, talents.PaladinShieldSpecialization):
+            if isinstance(talent, t.PaladinShieldSpecialization):
                 return floor(br * (1 + .1 * talent.rank))
 
         return floor(br)
