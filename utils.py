@@ -21,6 +21,20 @@ class Stats:
     expertise: int
 
 
+class TankHP:
+    __slots__ = 'hp', 'full'
+
+    def __init__(self, hp):
+        self.hp = hp
+        self.full = hp
+
+    def damage(self, damage):
+        self.hp = max(self.hp - damage, 0)
+
+    def heal(self, heal):
+        self.hp = min(self.hp + heal, self.full)
+
+
 class Order(Enum):
     LENIENT = 0
     HARSH = 1

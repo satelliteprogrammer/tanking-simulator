@@ -1,13 +1,15 @@
 from math import floor
 from random import uniform
-from utils import Stats
-import talents
+from utils import Stats, TankHP, Heal
+import buffs as b
+import talents as t
 
 
 class Boss:
 
-    def __init__(self, name, damage, speed, school, abilities=None):
+    def __init__(self, name, level, damage, speed, school, abilities=None):
         self.name = name
+        self.level = level
         self.damage = damage
         self.speed = speed
         self.school = school
@@ -79,8 +81,8 @@ class Tank:
 
         self.speed = speed
 
-    def get_hp(self):
-        return floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10)
+    def get_hp(self) -> TankHP:
+        return TankHP(floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10))
 
     @staticmethod
     def __defense_contribution(defense: float, level: int) -> float:
@@ -117,22 +119,25 @@ class WarriorTank(Tank):
     def get_block_reduction(self) -> int:
         br = self.stats.block_value + self.stats.strength / 20
         for talent in self.talents:
-            if isinstance(talent, talents.ShieldMastery):
+            if isinstance(talent, t.ShieldMastery):
                 return floor(br * (1 + .1 * talent.rank))
 
         return floor(br)
 
 
 class Healer:
-    haste_rating = 15.77
-    crit_rating = 22.0769
+    haste_ratio = 15.77
+    crit_ratio = 22.0769
 
-    def __init__(self, bh, haste, crit):
+    def __init__(self, bh, haste_rating, crit_rating):
         self.bh = bh
-        self.haste = haste
-        self.crit = crit
+        self.haste = haste_rating/self.haste_ratio
+        self.crit = crit_rating/self.crit_ratio
 
-    def heal(self, hp, max_hp):
+    def heal(self):
+        pass
+
+    def decision(self, tank: TankHP):
         pass
 
 
@@ -146,22 +151,19 @@ class PaladinHealer(Healer):
     hl_inc_crit = .11
     fol_inc_crit = .5
 
-    def heal(self, hp, max_hp):
-        if hp < .9 * max_hp:
-            return self.HL9()
+    def __init__(self, bh, haste, crit):
+        super().__init__(bh, haste, crit)
+
+        self.FoL = Heal((458, 513), 1.5, self.fol_eff, self.fol_inc, self.fol_inc_crit, self)
+        self.HL9 = Heal((1619, 1799), 2.5, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
+
+        self.next_spell = self.HL9
+
+    def heal(self):
+        return self.next_spell.apply()
+
+    def decision(self, tank: TankHP):
+        if tank.hp < .8 * tank.full:
+            self.next_spell = self.HL9
         else:
-            return self.FoL()
-
-    def FoL(self):
-        base = (458, 513)
-        cast = 1.5 / (1 + (self.haste / self.haste_rating) / 100)
-        heal = (uniform(base[0], base[1]) + self.bh * self.fol_eff) * (1 + self.fol_inc)
-
-        return heal, cast
-
-    def HL9(self):
-        base = (1619, 1799)
-        cast = 2 / (1 + (self.haste / self.haste_rating) / 100)
-        heal = (uniform(base[0], base[1]) + self.bh * self.hl_eff) * (1 + self.hl_inc)
-
-        return heal, cast
+            self.next_spell = self.FoL
