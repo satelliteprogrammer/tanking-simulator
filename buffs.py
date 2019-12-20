@@ -10,6 +10,10 @@ class Buff:
 class BoK(Buff):
     @staticmethod
     def apply(stats: Stats):
+        pass
+
+    @staticmethod
+    def after(stats: Stats):
         stats.stamina *= 1.1
         stats.agility *= 1.1
         stats.strength *= 1.1
