@@ -16,7 +16,7 @@ class Boss:
         self.abilities = abilities
 
     def attack(self):
-        return self.damage
+        return floor(uniform(self.damage[0], self.damage[1]))
 
     def ability(self, name):
         if self.abilities is not None:
