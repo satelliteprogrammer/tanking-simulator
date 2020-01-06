@@ -68,6 +68,10 @@ class Order(Enum):
     RANDOM = 2
 
 
+class FightOver(Exception):
+    pass
+
+
 def trange(stop):
     i = 0
     while i < stop:

@@ -53,8 +53,7 @@ class Fight:
         self.current_time = e.time
 
         if self.current_time > self.duration:
-            self.events = deque()
-            return
+            raise FightOver
 
         # current_events = dict()
         # current_events[str(e[1].__name__)] = e
@@ -66,8 +65,7 @@ class Fight:
         next_event = self.logic(e)
 
         if self.tank_hp.get_hp() == 0:
-            self.events = deque()
-            return
+            raise FightOver
 
         self.add(next_event)
 
