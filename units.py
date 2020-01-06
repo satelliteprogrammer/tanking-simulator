@@ -195,3 +195,16 @@ class PaladinHealer(Healer):
             self.next_spell = self.HL9
         else:
             self.next_spell = self.FoL
+
+# class DruidHealer(Healer):
+#     '''
+#     rej, 1x life (before battle)
+#     light: rejuvenation, 3x lifeblooms, regrowth if low
+#     medium: always use regrowth or .65/7
+#     heavy: rej, 2x life, regrowth, use healing touch
+#
+#     swiftmend: uses the hot with the least time to end
+#     '''
+#
+#     rejuvenation_eff = .2
+#     regrowth
