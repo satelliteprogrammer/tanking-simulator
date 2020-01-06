@@ -1,4 +1,5 @@
 from collections import deque
+from utils import FightOver
 import buffs as b
 import encounter
 import matplotlib.pyplot as plt
@@ -13,11 +14,12 @@ def run(fight: encounter.Fight):
 # def run(boss1, tank1, heal1, duration):
 #     fight = encounter.Fight(boss1, tank1, heal1, duration, deque())
     fight.initialize()
-    while len(fight.events) > 0:
-        # print(fight.events)
-        fight.next()
+    while True:
+        try:
+            fight.next()
+        except FightOver:
+            return fight.finish()
 
-    return fight.finish()
 
 
 if __name__ == '__main__':
