@@ -1,6 +1,7 @@
+from heals import Heal
 from math import floor
 from random import uniform
-from utils import Stats, TankHP, Heal
+from utils import Stats, TankHP
 import buffs as b
 import talents as t
 
@@ -170,7 +171,6 @@ class Healer:
 
 
 class PaladinHealer(Healer):
-    # missing crit and libram calculations
 
     hl_eff = .714
     fol_eff = .429
@@ -191,10 +191,13 @@ class PaladinHealer(Healer):
         return self.next_spell.apply()
 
     def decision(self, tank: TankHP):
-        if tank.hp < .8 * tank.full:
+        if tank.get_hp() < .8 * tank.max:
             self.next_spell = self.HL9
         else:
             self.next_spell = self.FoL
+
+        return self.next_spell.cast
+
 
 # class DruidHealer(Healer):
 #     '''

@@ -1,5 +1,17 @@
 from dataclasses import dataclass
 from enum import Enum
+import types
+
+
+@dataclass
+class TimeEvent:
+    __slots__ = 'time', 'event'
+    time: float
+    event: types.FunctionType
+
+    def __repr__(self):
+        s = 'TimeEvent {}s -> {}'.format(self.time, self.event.__name__)
+        return s
 
 
 @dataclass(eq=False)
@@ -22,17 +34,32 @@ class Stats:
 
 
 class TankHP:
-    __slots__ = 'hp', 'full'
+    __slots__ = 'max', '__hp'
 
     def __init__(self, hp):
-        self.hp = hp
-        self.full = hp
+        self.max = hp
+        self.__hp = [(0.0, hp)]
 
-    def damage(self, damage):
-        self.hp = max(self.hp - damage, 0)
+    def damage(self, damage: int, time: float):
+        self.__hp.append((time, max(self.__hp[-1][1] - damage, 0)))
 
-    def heal(self, heal):
-        self.hp = min(self.hp + heal, self.full)
+    def heal(self, heal: int, time: float):
+        if self.max == self.__hp[-1][1]:
+            return
+        self.__hp.append((time, min(self.__hp[-1][1] + heal, self.max)))
+
+    def get_hp(self):
+        return self.__hp[-1][1]
+
+    def get_fight(self):
+        return self.__hp
+
+
+class Statistics:
+    def __init__(self):
+        self.missed = self.dodged = self.parried = self.blocked = self.crushed = self.hitted = 0
+        self.critical_events = 0
+        self.hp = list()
 
 
 class Order(Enum):
