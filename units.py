@@ -82,8 +82,7 @@ class Tank:
 
         self.speed = speed
 
-    def get_hp(self) -> TankHP:
-        return TankHP(floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10))
+        self.hp = floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10)
 
     @staticmethod
     def __defense_contribution(defense: float, level: int) -> float:
@@ -105,7 +104,7 @@ class Tank:
               'defense: {}, miss: {}%, dodge: {}%, parry: {}%, block: {}%\n' \
               'hp = {}\nhard avoidance = {}%\ndamage mitigation = {}%' \
               ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense, stats.miss,
-                        stats.dodge, stats.parry, stats.block, self.get_hp().max,
+                        stats.dodge, stats.parry, stats.block, self.hp,
                         stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73)*100)
         return str
 

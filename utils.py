@@ -57,9 +57,27 @@ class TankHP:
 
 class Statistics:
     def __init__(self):
-        self.missed = self.dodged = self.parried = self.blocked = self.crushed = self.hitted = 0
-        self.critical_events = 0
-        self.hp = list()
+        self._missed = self._dodged = self._parried = self._blocked = self._crushed = self._hitted = 0
+        self._critical_events = 0
+        self._hp = list()
+
+    def miss(self):
+        self._missed += 1
+
+    def dodge(self):
+        self._dodged += 1
+
+    def parry(self):
+        self._parried += 1
+
+    def block(self):
+        self._blocked += 1
+
+    def crush(self):
+        self._crushed += 1
+
+    def hit(self):
+        self._hitted += 1
 
 
 class Order(Enum):
