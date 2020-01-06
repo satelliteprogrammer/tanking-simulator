@@ -1,11 +1,11 @@
 from random import random, uniform
 from statistics import mean
-from units import Healer
+# from units import Healer
 
 
 class Heal:
 
-    def __init__(self, base: tuple, cast: float, coefficient: float, healing, crit, healer: Healer):
+    def __init__(self, base: tuple, cast: float, coefficient: float, healing, crit, healer):
         self.base = base
         self.cast = min(1.5, cast) / (1 + healer.haste/100)
         self.coefficient = coefficient
