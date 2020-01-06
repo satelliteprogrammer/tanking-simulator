@@ -37,7 +37,7 @@ class Tank:
     https://wowwiki.fandom.com/wiki/Combat_rating_system?oldid=1597988
     """
     base_defense = 370
-    base_miss = 0
+    base_miss = 5
     base_dodge = 0
     base_parry = 5
     base_block = 5
@@ -89,8 +89,8 @@ class Tank:
         return (floor(defense) - level * 5) * 0.04
 
     def get_armor_reduction(self, level: int) -> float:
-        """attacker 60+: DR% = Armor / (Armor + 400 + 85 * (AttackerLevel + 4.5 * (AttackerLevel - 59)))"""
-        return (self.stats.armor / (self.stats.armor + 467.5 * level - 22167.5))/100
+        """attacker 60+: DR = Armor / (Armor + 400 + 85 * (AttackerLevel + 4.5 * (AttackerLevel - 59)))"""
+        return self.stats.armor / (self.stats.armor + 467.5 * level - 22167.5)
 
     def get_block_reduction(self) -> int:
         pass
@@ -98,10 +98,29 @@ class Tank:
     def attack(self):
         return self.speed
 
+    def __repr__(self):
+        stats = self.stats
+        str = 'Paladin Tank\nstamina: {}, agility: {}, strength: {}, armor: {}\n' \
+              'defense: {}, miss: {}%, dodge: {}%, parry: {}%, block: {}%\n' \
+              'hp = {}\nhard avoidance = {}%\ndamage mitigation = {}%' \
+              ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense, stats.miss,
+                        stats.dodge, stats.parry, stats.block, self.get_hp().max,
+                        stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73)*100)
+        return str
+
 
 class PaladinTank(Tank):
     base_dodge = .65
     agi_dodge_ratio = 25
+
+    def __init__(self, stamina: int, agility: int, strength: int, defense_rating: int, dodge_rating: int,
+                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
+                 speed: float, talents: tuple = (), buffs: tuple = ()):
+
+        super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
+                         block_value, armor, hit, expertise, speed, talents, buffs)
+
+        self.stats.block += 30
 
     def get_block_reduction(self) -> int:
         br = self.stats.block_value + self.stats.strength / 20
@@ -115,6 +134,15 @@ class PaladinTank(Tank):
 class WarriorTank(Tank):
     base_dodge = .75
     agi_dodge_ratio = 30
+
+    def __init__(self, stamina: int, agility: int, strength: int, defense_rating: int, dodge_rating: int,
+                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
+                 speed: float, talents: tuple = (), buffs: tuple = ()):
+
+        super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
+                         block_value, armor, hit, expertise, speed, talents, buffs)
+
+        self.stats.block += 75
 
     def get_block_reduction(self) -> int:
         br = self.stats.block_value + self.stats.strength / 20
