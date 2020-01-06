@@ -11,8 +11,6 @@ import units
 
 
 def run(fight: encounter.Fight):
-# def run(boss1, tank1, heal1, duration):
-#     fight = encounter.Fight(boss1, tank1, heal1, duration, deque())
     fight.initialize()
     while True:
         try:
@@ -20,6 +18,10 @@ def run(fight: encounter.Fight):
         except FightOver:
             return fight.finish()
 
+
+# results = list()
+# def append_result(r):
+#     results.append(r)
 
 
 if __name__ == '__main__':
@@ -43,27 +45,28 @@ if __name__ == '__main__':
     '''
     heal1 = units.PaladinHealer(2000, 100, 200)
 
-    R = 1000
+    R = 10000
     r = 0
 
     start = time.time()
 
-    results = list()
-    while r < R:
-        events = deque()
-        result = run(encounter.Fight(boss1, tank1, heal1, 480, events))
-        # print(result)
-        results.append(result)
-
-        r += 1
-
+    # results = list()
+    # while r < R:
+    #     events = deque()
+    #     result = run(encounter.Fight(boss1, tank1, heal1, 480, events))
+    #     # print(result)
+    #     results.append(result)
+    #
+    #     r += 1
 
     # pool = mp.Pool(mp.cpu_count())
-    #
-    # results = [pool.apply(run, args=(boss1, tank1, heal1, 480)) for i in range(0, R)]
-    # # results = pool.map(run, [encounter.Fight(boss1, tank1, heal1, 480, deque()) for i in range(0, R)])
-    #
+    # for i in range(R):
+    #     pool.apply_async(run, args=(boss1, tank1, heal1, 480), callback=append_result)
     # pool.close()
+    # pool.join()
+
+    with mp.Pool(mp.cpu_count()) as pool:
+        results = pool.map(run, [encounter.Fight(boss1, tank1, heal1, 480, deque()) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
