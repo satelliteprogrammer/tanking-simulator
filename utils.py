@@ -79,6 +79,21 @@ class Statistics:
     def hit(self):
         self._hitted += 1
 
+    def critical_event(self):
+        self._critical_events += 1
+
+    def set_tank_hp(self, hp: TankHP):
+        self._hp = hp
+
+    def get_stats(self):
+        return self._missed, self._dodged, self._parried, self._blocked, self._crushed, self._hitted
+
+    def get_critical_events(self):
+        return self._critical_events
+
+    def get_tank_hp(self) -> TankHP:
+        return self._hp
+
 
 class Order(Enum):
     LENIENT = 0
