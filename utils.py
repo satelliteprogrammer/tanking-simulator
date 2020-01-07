@@ -1,24 +1,21 @@
 from dataclasses import dataclass
 from enum import Enum
-import types
+import attr
+import typing
 
 
-@dataclass
+@attr.s(slots=True, auto_attribs=True, repr=False)
 class TimeEvent:
-    __slots__ = 'time', 'event'
     time: float
-    event: types.FunctionType
+    event: typing.Callable[[typing.Deque], typing.Any]
 
     def __repr__(self):
         s = 'TimeEvent {}s -> {}'.format(self.time, self.event.__name__)
         return s
 
 
-@dataclass(eq=False)
+@attr.s(slots=True, auto_attribs=True)
 class Stats:
-    __slots__ = 'stamina', 'agility', 'strength', 'defense', 'miss', 'dodge', 'parry', 'block', 'block_value', 'armor',\
-                'hit', 'expertise'
-
     stamina: float
     agility: float
     strength: float
@@ -33,33 +30,40 @@ class Stats:
     expertise: int
 
 
+@attr.s(slots=True, auto_attribs=True, init=False)
 class TankHP:
-    __slots__ = 'max', '__hp'
+    max: int
+    _hp: typing.List[typing.Tuple]
 
     def __init__(self, hp):
         self.max = hp
-        self.__hp = [(0.0, hp)]
+        self._hp = [(0.0, hp)]
 
     def damage(self, damage: int, time: float):
-        self.__hp.append((time, max(self.__hp[-1][1] - damage, 0)))
+        self._hp.append((time, max(self._hp[-1][1] - damage, 0)))
 
     def heal(self, heal: int, time: float):
-        if self.max == self.__hp[-1][1]:
+        if self.max == self._hp[-1][1]:
             return
-        self.__hp.append((time, min(self.__hp[-1][1] + heal, self.max)))
+        self._hp.append((time, min(self._hp[-1][1] + heal, self.max)))
 
     def get_hp(self):
-        return self.__hp[-1][1]
+        return self._hp[-1][1]
 
     def get_fight(self):
-        return self.__hp
+        return self._hp
 
 
+@attr.s(slots=True)
 class Statistics:
-    def __init__(self):
-        self._missed = self._dodged = self._parried = self._blocked = self._crushed = self._hitted = 0
-        self._critical_events = 0
-        self._hp = list()
+    _missed = attr.ib(default=0)
+    _dodged = attr.ib(default=0)
+    _parried = attr.ib(default=0)
+    _blocked = attr.ib(default=0)
+    _crushed = attr.ib(default=0)
+    _hitted = attr.ib(default=0)
+    _critical_events = attr.ib(default=0)
+    _hp = attr.ib(default=attr.Factory(tuple))
 
     def miss(self):
         self._missed += 1

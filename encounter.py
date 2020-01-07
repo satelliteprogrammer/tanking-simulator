@@ -47,7 +47,7 @@ class Fight:
             # e = self.events.popleft()
             # current_events[str(e[1].__name__)] = e
 
-        next_event = self.logic(e)
+        next_event = e.event.next()
 
         if self.tank_hp.get_hp() == 0:
             raise FightOver
