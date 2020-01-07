@@ -5,8 +5,6 @@ import mechanics
 import random
 import units
 
-# TimeEvent = namedtuple('TimeEvent', ['time', 'event'])
-
 
 class Fight:
 
@@ -18,19 +16,11 @@ class Fight:
         self.duration = duration
         self.order = order
 
-        self.stats = Statistics()
-
-        self.critical_events = 0
-
-        self.missed = 0
-        self.dodged = 0
-        self.parried = 0
-        self.blocked = 0
-        self.hit = 0
-        self.crushed = 0
-        self.critted = 0
-
         self.tank_hp = TankHP(tank.hp)
+
+        self.stats = Statistics()
+        self.stats.set_tank_hp(self.tank_hp)
+
         self.current_time = 0
         self.events = events
 
@@ -39,9 +29,8 @@ class Fight:
         self.events.append(TimeEvent(0, self.boss.attack))
         self.events.append(TimeEvent(0, self.healer.heal))
 
-    def finish(self):
-        return self.missed, self.dodged, self.parried, self.blocked, self.crushed, self.hit, self.critical_events, \
-               self.current_time, self.tank_hp
+    def finish(self) -> (Statistics, int):
+        return self.stats, self.current_time
 
     def next(self) -> None:
         e = self.events.popleft()
@@ -54,7 +43,7 @@ class Fight:
         # current_events = dict()
         # current_events[str(e[1].__name__)] = e
         if self.events[0].time == self.current_time:
-            self.critical_events += 1
+            self.stats.critical_event()
             # e = self.events.popleft()
             # current_events[str(e[1].__name__)] = e
 
@@ -77,10 +66,10 @@ class Fight:
                 self.stats.parry()
             elif (roll := roll - self.tank.stats.parry) < self.tank.stats.block:
                 self.stats.block()
-                damage = (1 - self.tank.get_armor_reduction(self.boss.level)) * \
-                         (e.event() - self.tank.get_block_reduction())
+                damage = ((1 - self.tank.get_armor_reduction(self.boss.level)) *
+                          (e.event() - self.tank.get_block_reduction()))
                 self.tank_hp.damage(damage, self.current_time)
-            elif roll - self.tank.stats.block < 15:
+            elif (roll - self.tank.stats.block) < 15:
                 self.stats.crush()
                 damage = (1 - self.tank.get_armor_reduction(self.boss.level)) * e.event() * 1.5
                 self.tank_hp.damage(damage, self.current_time)

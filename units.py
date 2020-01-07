@@ -198,15 +198,27 @@ class PaladinHealer(Healer):
         return self.next_spell.cast
 
 
-# class DruidHealer(Healer):
-#     '''
-#     rej, 1x life (before battle)
-#     light: rejuvenation, 3x lifeblooms, regrowth if low
-#     medium: always use regrowth or .65/7
-#     heavy: rej, 2x life, regrowth, use healing touch
-#
-#     swiftmend: uses the hot with the least time to end
-#     '''
-#
-#     rejuvenation_eff = .2
-#     regrowth
+class DruidHealer(Healer):
+    '''
+    rej, 1x life (before battle)
+    light: rejuvenation, 3x lifeblooms, regrowth if low
+    medium: always use regrowth or .65/7
+    heavy: rej, 2x life, regrowth, use healing touch
+
+    swiftmend: uses the hot with the least time to end
+    '''
+
+    healing_touch_eff = 1.2
+    lifebloom_eff = .4114
+    lifebloom_dot_eff = .6216
+    rejuvenation_eff = .96
+    regrowth_eff = .36
+    regrowth_dot_eff = .84
+    swiftmend_rejuvenation_eff = 1
+    tranquility_eff = .93
+
+    def __init__(self, bh, haste_rating, crit_rating):
+        super().__init__(bh, haste_rating, crit_rating)
+
+        self.LB = Heal
+

@@ -41,11 +41,16 @@ if __name__ == '__main__':
     boss1 = units.Boss('Brutallus', 73, [8000, 16000], 2.0, 'physical')
 
     '''
+    Boss: boss, level, dmg min - max, spd, school, abilities [11521, 22721]
+    '''
+    boss2 = units.Boss('Fathom-Guard Tidalvess', 73, [11099, 13992], 2.0, 'physical')
+
+    '''
     Healer:                     bh,   haste, crit
     '''
     heal1 = units.PaladinHealer(2000, 100, 200)
 
-    R = 10000
+    R = 1000
     r = 0
 
     start = time.time()
@@ -66,26 +71,28 @@ if __name__ == '__main__':
     # pool.join()
 
     with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.map(run, [encounter.Fight(boss1, tank1, heal1, 480, deque()) for i in range(R)])
+        results = pool.map(run, [encounter.Fight(boss2, tank1, heal1, 480, deque()) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
     deaths = []
     missed, dodged, parried, blocked, crushed, hit, totals, critical_events = ([] for i in range(8))
     for i, r in enumerate(results):
-        if r[7] < 480:
+        if r[1] < 480:
             # print('Fight lasted {}s'.format(r[7]))
             # deaths.append(i)
             continue
-        total = r[0] + r[1] + r[2] + r[3] + r[4] + r[5]
+
+        misses, dodges, parries, blocks, crushes, hits = r[0].get_stats()
+        total = misses + dodges + parries + blocks + crushes + hits
         totals.append(total)
-        missed.append(r[0]/total*100)
-        dodged.append(r[1]/total*100)
-        parried.append(r[2]/total*100)
-        blocked.append(r[3]/total*100)
-        crushed.append(r[4]/total*100)
-        hit.append(r[5]/total*100)
-        critical_events.append(r[6])
+        missed.append(misses/total*100)
+        dodged.append(dodges/total*100)
+        parried.append(parries/total*100)
+        blocked.append(blocks/total*100)
+        crushed.append(crushes/total*100)
+        hit.append(hits/total*100)
+        critical_events.append(r[0].get_critical_events())
 
     print('missed mean: {} variance: {}'.format(stat.mean(missed), stat.stdev(missed)))
     print('dodged mean: {} variance: {}'.format(stat.mean(dodged), stat.stdev(dodged)))
@@ -98,7 +105,7 @@ if __name__ == '__main__':
     counter = 0
 
     for r in results:
-        for t, hp in r[8].get_fight():
+        for t, hp in r[0].get_tank_hp().get_fight():
             if hp == 0:
                 counter += 1
 
