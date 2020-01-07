@@ -1,7 +1,17 @@
-class Heal:
+from heals import Heal
+import attr
 
-    def __init__(self, name):
-        self.name = name
+
+@attr.s(slots=True)
+class Event:
+
+    def next(self):
+        pass
+
+
+@attr.s(slots=True)
+class HealEvent(Event, Heal):
+
 
 
 class Ability:
@@ -13,6 +23,9 @@ class Ability:
         self.school = school
 
         self.atk_timer = atk_speed
+
+
+
 
 
 meteor_slash = Ability('Meteor Slash', 20000/9, 15, 'fire')
