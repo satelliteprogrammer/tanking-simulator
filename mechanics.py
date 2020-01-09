@@ -1,16 +1,33 @@
+from __future__ import annotations
+from collections import deque
 from heals import Heal
+from typing import List
 import attr
 
-
 @attr.s(slots=True)
-class Event:
+class Event(object):
 
-    def next(self):
+    @classmethod
+    def next(cls, queue: deque) -> List[Event]:
         pass
 
 
 @attr.s(slots=True)
-class HealEvent(Event, Heal):
+class HealerEvent(Heal, Event):
+
+    @classmethod
+    def next(cls, queue: deque) -> List[Event]:
+
+        return Heal
+
+
+@attr.s(slots=True)
+class HoTEvent(Hot, Event):
+
+    @classmethod
+    def next(cls, queue: deque) -> List[Event]:
+
+        return
 
 
 

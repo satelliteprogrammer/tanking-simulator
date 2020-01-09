@@ -7,7 +7,7 @@ import typing
 @attr.s(slots=True, auto_attribs=True, repr=False)
 class TimeEvent:
     time: float
-    event: typing.Callable[[typing.Deque], typing.Any]
+    event: object
 
     def __repr__(self):
         s = 'TimeEvent {}s -> {}'.format(self.time, self.event.__name__)
