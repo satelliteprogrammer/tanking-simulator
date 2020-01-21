@@ -57,32 +57,34 @@ class Tank:
                  parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
                  speed: float, talents: tuple = (), buffs: tuple = ()):
 
-        self.stats = Stats(stamina, agility, strength, self.base_defense, self.base_miss, self.base_dodge,
-                           self.base_parry, self.base_block, self.base_block_value, armor, hit, expertise)
+        self.attributes = Stats(stamina, agility, strength, self.base_defense, self.base_miss, self.base_dodge,
+                                self.base_parry, self.base_block, self.base_block_value, armor, hit, expertise)
 
         self.buffs = buffs
         for buff in buffs:
-            buff.apply(self.stats)
+            buff.apply(self.attributes)
 
         self.talents = talents
         for talent in talents:
-            talent.apply(self.stats)
+            talent.apply(self.attributes)
 
         for buff in buffs:
             if isinstance(buff, b.BoK):
-                b.BoK.after(self.stats)
+                b.BoK.after(self.attributes)
 
-        self.stats.defense += defense_rating / self.def_def_ratio
-        self.stats.miss += (self.stats.defense - 73 * 5) * .04
-        self.stats.dodge += self.stats.agility / self.agi_dodge_ratio + dodge_rating / self.dodge_dodge_ratio + \
-                            Tank.__defense_contribution(self.stats.defense, 73)
-        self.stats.parry += parry_rating / self.parry_parry_ratio + Tank.__defense_contribution(self.stats.defense, 73)
-        self.stats.block += block_rating / self.block_block_ratio + Tank.__defense_contribution(self.stats.defense, 73)
-        self.stats.block_value += block_value
+        self.attributes.defense += defense_rating / self.def_def_ratio
+        self.attributes.miss += (self.attributes.defense - 73 * 5) * .04
+        self.attributes.dodge += self.attributes.agility / self.agi_dodge_ratio + dodge_rating / self.dodge_dodge_ratio + \
+                                 Tank.__defense_contribution(self.attributes.defense, 73)
+        self.attributes.parry += parry_rating / self.parry_parry_ratio + Tank.__defense_contribution(
+            self.attributes.defense, 73)
+        self.attributes.block += block_rating / self.block_block_ratio + Tank.__defense_contribution(
+            self.attributes.defense, 73)
+        self.attributes.block_value += block_value
 
         self.speed = speed
 
-        self.hp = floor(min(self.stats.stamina, 20) + (self.stats.stamina - min(self.stats.stamina, 20)) * 10)
+        self.hp = floor(min(self.attributes.stamina, 20) + (self.attributes.stamina - min(self.attributes.stamina, 20)) * 10)
 
     @staticmethod
     def __defense_contribution(defense: float, level: int) -> float:
@@ -90,7 +92,7 @@ class Tank:
 
     def get_armor_reduction(self, level: int) -> float:
         """attacker 60+: DR = Armor / (Armor + 400 + 85 * (AttackerLevel + 4.5 * (AttackerLevel - 59)))"""
-        return self.stats.armor / (self.stats.armor + 467.5 * level - 22167.5)
+        return self.attributes.armor / (self.attributes.armor + 467.5 * level - 22167.5)
 
     def get_block_reduction(self) -> int:
         pass
@@ -99,13 +101,13 @@ class Tank:
         return self.speed
 
     def __repr__(self):
-        stats = self.stats
+        stats = self.attributes
         str = 'Paladin Tank\nstamina: {}, agility: {}, strength: {}, armor: {}\n' \
               'defense: {}, miss: {}%, dodge: {}%, parry: {}%, block: {}%\n' \
               'hp = {}\nhard avoidance = {}%\ndamage mitigation = {}%' \
               ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense, stats.miss,
                         stats.dodge, stats.parry, stats.block, self.hp,
-                        stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73)*100)
+                        stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73) * 100)
         return str
 
 
@@ -120,10 +122,10 @@ class PaladinTank(Tank):
         super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
                          block_value, armor, hit, expertise, speed, talents, buffs)
 
-        self.stats.block += 30
+        self.attributes.block += 30
 
     def get_block_reduction(self) -> int:
-        br = self.stats.block_value + self.stats.strength / 20
+        br = self.attributes.block_value + self.attributes.strength / 20
         for talent in self.talents:
             if isinstance(talent, t.PaladinShieldSpecialization):
                 return floor(br * (1 + .1 * talent.rank))
@@ -142,10 +144,10 @@ class WarriorTank(Tank):
         super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
                          block_value, armor, hit, expertise, speed, talents, buffs)
 
-        self.stats.block += 75
+        self.attributes.block += 75
 
     def get_block_reduction(self) -> int:
-        br = self.stats.block_value + self.stats.strength / 20
+        br = self.attributes.block_value + self.attributes.strength / 20
         for talent in self.talents:
             if isinstance(talent, t.ShieldMastery):
                 return floor(br * (1 + .1 * talent.rank))
@@ -159,8 +161,8 @@ class Healer:
 
     def __init__(self, bh, haste_rating, crit_rating):
         self.bh = bh
-        self.haste = haste_rating/self.haste_ratio
-        self.crit = crit_rating/self.crit_ratio
+        self.haste = haste_rating / self.haste_ratio
+        self.crit = crit_rating / self.crit_ratio
 
     def heal(self):
         pass
@@ -168,9 +170,11 @@ class Healer:
     def decision(self, tank: TankHP):
         pass
 
+    def current_cast(self):
+        pass
+
 
 class PaladinHealer(Healer):
-
     hl_eff = .714
     fol_eff = .429
     hl_inc = .12
@@ -184,18 +188,18 @@ class PaladinHealer(Healer):
         self.FoL = Heal((458, 513), 1.5, self.fol_eff, self.fol_inc, self.fol_inc_crit, self)
         self.HL9 = Heal((1619, 1799), 2.5, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
 
-        self.next_spell = self.HL9
+        self.cast = self.HL9
 
     def heal(self):
-        return self.next_spell.apply()
+        return self.cast.apply()
 
     def decision(self, tank: TankHP):
         if tank.get_hp() < .8 * tank.max:
-            self.next_spell = self.HL9
+            self.cast = self.HL9
         else:
-            self.next_spell = self.FoL
+            self.cast = self.FoL
 
-        return self.next_spell.cast
+        return self.cast.cast
 
 
 class DruidHealer(Healer):
@@ -221,4 +225,3 @@ class DruidHealer(Healer):
         super().__init__(bh, haste_rating, crit_rating)
 
         self.LB = Heal
-
