@@ -1,4 +1,5 @@
-from collections import deque
+from __future__ import annotations
+from mechanics import Queue
 from utils import FightOver
 import buffs as b
 import encounter
@@ -24,8 +25,7 @@ def run(fight: encounter.Fight):
 #     results.append(r)
 
 
-if __name__ == '__main__':
-
+def main():
     '''
     Tank: sta, agi, str, def, ddg, par, blo, b_v, armor, hit, exp, spd, talents, buffs
     '''
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     # pool.join()
 
     with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.map(run, [encounter.Fight(boss2, tank1, heal1, 480, deque()) for i in range(R)])
+        results = pool.map(run, [encounter.Fight(boss2, tank1, heal1, 480, Queue()) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
@@ -116,3 +116,7 @@ if __name__ == '__main__':
     #     hp = [hp[1] for hp in results[deaths[0]][8].hp]
     #     plt.plot(time, hp)
     #     plt.show()
+
+
+if __name__ == '__main__':
+    main()

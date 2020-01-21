@@ -1,18 +1,19 @@
 from __future__ import annotations
 from abilities import Ability
+from attr import attrs, attrib
+from bisect import insort
 from collections import deque, namedtuple
 from encounter import Fight
 from heals import Heal
 from units import Boss, Healer, Tank
-from typing import Deque, List
-import attr
+from typing import Deque, Dict, List
 import random
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class TimeEvent:
-    time = attr.ib(type=float)
-    event = attr.ib(type=object)
+    time = attrib(type=float)
+    event = attrib(type=object)
 
     def next(self, fight: Fight, trigger: TimeEvent = None) -> None:
         pass
@@ -21,7 +22,7 @@ class TimeEvent:
         return self.time < other.time
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class BossAttackEvent(TimeEvent):
 
     def next(self, fight: Fight, trigger: TimeEvent = None) -> None:
@@ -52,14 +53,14 @@ class BossAttackEvent(TimeEvent):
         fight.queue.add(self)
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class BossAbilityEvent(TimeEvent):
 
     def next(self, fight: Fight, trigger: TimeEvent = None) -> None:
         pass
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class HealEvent(TimeEvent):
 
     def next(self, fight: Fight, trigger: TimeEvent = None) -> None:
@@ -67,7 +68,7 @@ class HealEvent(TimeEvent):
         fight.tank_hp.heal(heal.apply(), fight.current_time)
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class HealerEvent(TimeEvent):
 
     def next(self, fight: Fight, trigger: TimeEvent = None) -> None:
@@ -94,7 +95,7 @@ class HealerEvent(TimeEvent):
         return fight.queue.last_ability.movement()
 
 
-@attr.s(slots=True, eq=False)
+@attrs(slots=True, eq=False)
 class HoTEvent(Hot, TimeEvent):
 
     def next(self, queue: Deque, trigger: TimeEvent = None) -> List[TimeEvent]:
@@ -102,4 +103,31 @@ class HoTEvent(Hot, TimeEvent):
         return
 
 
+@attrs(slots=True)
+class Queue:
+    queue = attrib(default=deque(), type=Deque)
+    dict = attrib(default=dict(), type=Dict)
+    last_ability = attrib(default=None, type=BossAbilityEvent)
 
+    def add(self, te: TimeEvent):
+        if te in self.dict:
+            raise AttributeError
+        else:
+            self.dict[te] = te.time
+            insort(self.queue, te)
+
+    def pop(self):
+        try:
+            while not (next := self.queue.popleft()) in self.dict:
+                pass
+        except IndexError:
+            return None
+
+        del self.dict[next]
+        if isinstance(next, BossAbilityEvent):
+            self.last_ability = next
+
+        return next
+
+    def cancel(self, e):
+        del self.dict[e]
