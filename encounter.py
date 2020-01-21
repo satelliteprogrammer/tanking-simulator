@@ -1,5 +1,6 @@
+from __future__ import annotations
 from collections import deque, namedtuple
-from mechanics import TimeEvent
+from mechanics import TimeEvent, Queue
 from os import urandom
 from utils import *
 import mechanics
