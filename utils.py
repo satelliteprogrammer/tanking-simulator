@@ -1,17 +1,10 @@
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
+from mechanics import TimeEvent, BossAbilityEvent
+from typing import Deque, Dict, List, Tuple
 import attr
-import typing
-
-
-@attr.s(slots=True, auto_attribs=True, repr=False)
-class TimeEvent:
-    time: float
-    event: object
-
-    def __repr__(self):
-        s = 'TimeEvent {}s -> {}'.format(self.time, self.event.__name__)
-        return s
+import bisect
 
 
 @attr.s(slots=True, auto_attribs=True)
@@ -30,10 +23,40 @@ class Stats:
     expertise: int
 
 
+@attr.s(slots=True)
+class Queue:
+    queue = attr.ib(default=deque(), type=Deque)
+    dict = attr.ib(default=dict(), type=Dict)
+    last_ability = attr.ib(default=None, type=BossAbilityEvent)
+
+    def add(self, te: TimeEvent):
+        if te in self.dict:
+            raise AttributeError
+        else:
+            self.dict[te] = te.time
+            bisect.insort(self.queue, te)
+
+    def pop(self):
+        try:
+            while not (next := self.queue.popleft()) in self.dict:
+                pass
+        except IndexError:
+            return None
+
+        del self.dict[next]
+        if isinstance(next, BossAbilityEvent):
+            self.last_ability = next
+
+        return next
+
+    def cancel(self, e):
+        del self.dict[e]
+
+
 @attr.s(slots=True, auto_attribs=True, init=False)
 class TankHP:
     max: int
-    _hp: typing.List[typing.Tuple]
+    _hp: List[Tuple]
 
     def __init__(self, hp):
         self.max = hp
