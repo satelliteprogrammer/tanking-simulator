@@ -1,17 +1,15 @@
 from __future__ import annotations
-from mechanics import Queue
-from utils import FightOver
+from mechanics import Fight, FightOver
 import buffs as b
-import encounter
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import statistics as stat
-import talents as t
+import talents as ta
 import time
 import units
 
 
-def run(fight: encounter.Fight):
+def run(fight: Fight):
     fight.initialize()
     while True:
         try:
@@ -30,8 +28,8 @@ def main():
     Tank: sta, agi, str, def, ddg, par, blo, b_v, armor, hit, exp, spd, talents, buffs
     '''
     tank1 = units.PaladinTank(1200,  12,   0, 324, 221,  64, 100, 300, 15000,   0,   0, 1.6,
-                              (t.CombatExpertise(5), t.SacredDuty(2), t.Deflection(5), t.RighteousFury(3),
-                               t.PaladinShieldSpecialization(3), t.Anticipation(5), t.Toughness(5)),
+                              (ta.CombatExpertise(5), ta.SacredDuty(2), ta.Deflection(5), ta.RighteousFury(3),
+                               ta.PaladinShieldSpecialization(3), ta.Anticipation(5), ta.Toughness(5)),
                               (b.Fortitude, b.MotW, b.BoK))
     print(tank1)
 
@@ -71,7 +69,7 @@ def main():
     # pool.join()
 
     with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.map(run, [encounter.Fight(boss2, tank1, heal1, 480, Queue()) for i in range(R)])
+        results = pool.map(run, [Fight(boss2, tank1, heal1, duration=480) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
@@ -116,6 +114,11 @@ def main():
     #     hp = [hp[1] for hp in results[deaths[0]][8].hp]
     #     plt.plot(time, hp)
     #     plt.show()
+    # hist = results[0][0].get_tank_hp()
+    # t = [p[0] for p in hist._hp]
+    # hp = [p[1] for p in hist._hp]
+    # plt.plot(t, hp)
+    # plt.show()
 
 
 if __name__ == '__main__':

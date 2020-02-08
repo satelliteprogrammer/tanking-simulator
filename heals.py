@@ -7,7 +7,7 @@ class Heal:
 
     def __init__(self, base: tuple, cast: float, coefficient: float, healing, crit, healer):
         self.base = base
-        self.cast = min(1.5, cast) / (1 + healer.haste/100)
+        self.cast_time = min(1.5, cast) / (1 + healer.haste/100)
         self.coefficient = coefficient
         self.increased_healing = healing
         self.crit = crit + healer.crit
@@ -25,4 +25,4 @@ class Heal:
     def hps(self):
         heal = (mean(self.base) + self.coefficient * self.healer.bh) * (1 + self.increased_healing)
 
-        return (heal * 1.5 * self.crit/100 + heal * (1 - self.crit/100))/self.cast
+        return (heal * 1.5 * self.crit/100 + heal * (1 - self.crit/100))/self.cast_time

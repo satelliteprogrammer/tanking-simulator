@@ -167,7 +167,7 @@ class Healer:
     def heal(self):
         pass
 
-    def decision(self, tank: TankHP):
+    def decision(self, tank: TankHP) -> Heal:
         pass
 
     def current_cast(self):
@@ -186,20 +186,20 @@ class PaladinHealer(Healer):
         super().__init__(bh, haste, crit)
 
         self.FoL = Heal((458, 513), 1.5, self.fol_eff, self.fol_inc, self.fol_inc_crit, self)
-        self.HL9 = Heal((1619, 1799), 2.5, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
+        self.HL9 = Heal((1619, 1799), 2, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
 
-        self.cast = self.HL9
+        self.heal = self.HL9
 
     def heal(self):
-        return self.cast.apply()
+        return self.heal.apply()
 
-    def decision(self, tank: TankHP):
+    def decision(self, tank: TankHP) -> Heal:
         if tank.get_hp() < .8 * tank.max:
-            self.cast = self.HL9
+            self.heal = self.HL9
         else:
-            self.cast = self.FoL
+            self.heal = self.FoL
 
-        return self.cast.cast
+        return self.heal
 
 
 class DruidHealer(Healer):
@@ -210,6 +210,10 @@ class DruidHealer(Healer):
     heavy: rej, 2x life, regrowth, use healing touch
 
     swiftmend: uses the hot with the least time to end
+
+    LB: the LB ticks are kept with the same initial schedule
+        the bloom will happen 7s after the last application
+        the have the timer
     '''
 
     healing_touch_eff = 1.2
