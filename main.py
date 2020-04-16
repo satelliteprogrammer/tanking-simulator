@@ -1,5 +1,5 @@
 from __future__ import annotations
-from mechanics import Fight, FightOver
+from mechanics import Fight
 import buffs as b
 import matplotlib.pyplot as plt
 import multiprocessing as mp
@@ -11,11 +11,8 @@ import units
 
 def run(fight: Fight):
     fight.initialize()
-    while True:
-        try:
-            fight.next()
-        except FightOver:
-            return fight.finish()
+    fight.run()
+    return fight.statistics()
 
 
 # results = list()
@@ -27,28 +24,35 @@ def main():
     '''
     Tank: sta, agi, str, def, ddg, par, blo, b_v, armor, hit, exp, spd, talents, buffs
     '''
-    tank1 = units.PaladinTank(1200,  12,   0, 324, 221,  64, 100, 300, 15000,   0,   0, 1.6,
-                              (ta.CombatExpertise(5), ta.SacredDuty(2), ta.Deflection(5), ta.RighteousFury(3),
-                               ta.PaladinShieldSpecialization(3), ta.Anticipation(5), ta.Toughness(5)),
-                              (b.Fortitude, b.MotW, b.BoK))
-    print(tank1)
+    pumpkinpie = units.PaladinTank(stamina=1345, agility=133, strength=0, defense_rating=418, dodge_rating=331,
+                                   parry_rating=30, block_rating=62, block_value=318, armor=30400, hit_rating=48,
+                                   expertise_rating=0, weapon_speed=1.8,
+                                   talents=(ta.CombatExpertise(5), ta.SacredDuty(2), ta.Deflection(5),
+                                            ta.RighteousFury(3), ta.PaladinShieldSpecialization(3),
+                                            ta.Anticipation(5), ta.Toughness(5)),
+                                   buffs=(b.iFortitude, b.iMotW, b.BoK, b.iCommandingShout, b.DevotionAura,
+                                          b.FlaskOfFortification, b.StaminaFood, b.ScrollOfProtection,
+                                          b.SunwellRadiance, b.InsectSwarm))
+    print(pumpkinpie)
 
     '''
     Boss: boss, level, dmg min - max, spd, school, abilities [11521, 22721]
     '''
-    boss1 = units.Boss('Brutallus', 73, [8000, 16000], 2.0, 'physical')
+    kalecgos = units.Boss('Kalecgos', 73, [24000, 26000], 2.0, 'physical')
 
     '''
     Boss: boss, level, dmg min - max, spd, school, abilities [11521, 22721]
     '''
-    boss2 = units.Boss('Fathom-Guard Tidalvess', 73, [11099, 13992], 2.0, 'physical')
+    boss2 = units.Boss('Fathom-Guard Tidalvess', 73, [11099, 13992], 1.5, 'physical')
 
     '''
     Healer:                     bh,   haste, crit
     '''
-    heal1 = units.PaladinHealer(2000, 100, 200)
+    eydel = units.PaladinHealer('Eydel', 2500, 0, 400)
+    epiphron = units.DruidHealer('Epiphron', 2200, 191, 242)
+    mawka = units.DruidHealer('Mawka', 2200, 191, 242)
 
-    R = 1000
+    R = 10000
     r = 0
 
     start = time.time()
@@ -62,26 +66,21 @@ def main():
     #
     #     r += 1
 
-    # pool = mp.Pool(mp.cpu_count())
-    # for i in range(R):
-    #     pool.apply_async(run, args=(boss1, tank1, heal1, 480), callback=append_result)
-    # pool.close()
-    # pool.join()
-
     with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.map(run, [Fight(boss2, tank1, heal1, duration=480) for i in range(R)])
+        results = pool.map(run, [Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2.0, 'physical'),
+                                       pumpkinpie,
+                                       [units.PaladinHealer('Eydel', 2500, 0, 400),
+                                        units.DruidHealer('Epiphron', 2200, 191, 242)],
+                                       duration=480) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
     deaths = []
     missed, dodged, parried, blocked, crushed, hit, totals, critical_events = ([] for i in range(8))
-    for i, r in enumerate(results):
-        if r[1] < 480:
-            # print('Fight lasted {}s'.format(r[7]))
-            # deaths.append(i)
-            continue
-
-        misses, dodges, parries, blocks, crushes, hits = r[0].get_stats()
+    for i, result in enumerate(results):
+        if result[0].get_tank_hp().get_hp():
+            deaths.append(i)
+        misses, dodges, parries, blocks, crushes, hits = result[0].get_stats()
         total = misses + dodges + parries + blocks + crushes + hits
         totals.append(total)
         missed.append(misses/total*100)
@@ -90,7 +89,7 @@ def main():
         blocked.append(blocks/total*100)
         crushed.append(crushes/total*100)
         hit.append(hits/total*100)
-        critical_events.append(r[0].get_critical_events())
+        critical_events.append(result[0].get_critical_events())
 
     print('missed mean: {} variance: {}'.format(stat.mean(missed), stat.stdev(missed)))
     print('dodged mean: {} variance: {}'.format(stat.mean(dodged), stat.stdev(dodged)))
@@ -100,14 +99,21 @@ def main():
     print('hit mean: {} variance: {}'.format(stat.mean(hit), stat.stdev(hit)))
     print('critical_events mean: {} variance: {}'.format(stat.mean(critical_events), stat.stdev(critical_events)))
 
-    counter = 0
+    print('Survived {} out of {}!'.format(R - len(deaths), R))
 
-    for r in results:
-        for t, hp in r[0].get_tank_hp().get_fight():
-            if hp == 0:
-                counter += 1
+    # t = [hp[0] for hp in results[0][0].get_tank_hp().get_fight()]
+    # hp = [hp[1] for hp in results[0][0].get_tank_hp().get_fight()]
+    # plt.plot(t, hp)
+    # plt.show()
 
-    print('Survived {} out of {}!'.format(R - counter, R))
+    with open('history.log', 'w') as f:
+        for death in deaths:
+            try:
+                death_recount = results[death][1][-40:]
+            except IndexError:
+                death_recount = results[death][1]
+            for line in death_recount:
+                f.write(repr(line) + '\n')
 
     # if deaths:
     #     time = [hp[0] for hp in results[deaths[0]][8].hp]
