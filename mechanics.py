@@ -1,12 +1,12 @@
 from __future__ import annotations
 from abilities import Ability
-from attr import attrs, attrib
+from attr import attrs, attrib, Factory
 from bisect import insort
 from collections import deque, namedtuple
-from heals import Heal
+from heals import Heal, HoT, LB, REG
 from units import Boss, Healer, Tank
 from utils import FightOver, Order, Statistics, TankHP
-from typing import Deque, Dict, List
+from typing import Deque, Dict, List, TypeVar, Tuple
 import random
 
 
@@ -14,7 +14,7 @@ import random
 class TimeEvent:
     time = attrib(type=float)
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
         pass
 
     def __lt__(self, other):
@@ -22,149 +22,297 @@ class TimeEvent:
 
 
 @attrs(slots=True, eq=False)
-class BossEvent(TimeEvent):
+class AttackEvent(TimeEvent):
+    unit = attrib()
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List[AttackEvent]:
+        pass
+
+
+@attrs(slots=True, eq=False, repr=False)
+class BossAttackEvent(AttackEvent):
+    unit = attrib(type=Boss)
+    last_attack = attrib(type=Tuple, default=())
+
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List[BossAttackEvent]:
 
         roll = random.uniform(0, 100)
         if roll < fight.tank.attributes.miss:
             fight.stats.miss()
+            damage = 0
+            self.last_attack = (self.time, 'missed')
         elif (roll := roll - fight.tank.attributes.miss) < fight.tank.attributes.dodge:
             fight.stats.dodge()
+            damage = 0
+            self.last_attack = (self.time, 'dodged')
         elif (roll := roll - fight.tank.attributes.dodge) < fight.tank.attributes.parry:
             fight.stats.parry()
+            damage = 0
+            self.last_attack = (self.time, 'parried')
         elif (roll := roll - fight.tank.attributes.parry) < fight.tank.attributes.block:
             fight.stats.block()
+            self.last_attack = (self.time, 'blocked')
             damage = ((1 - fight.tank.get_armor_reduction(fight.boss.level)) *
                       (fight.boss.attack() - fight.tank.get_block_reduction()))
-            fight.tank_hp.damage(damage, fight.current_time)
         elif (roll - fight.tank.attributes.block) < 15:
             fight.stats.crush()
             damage = (1 - fight.tank.get_armor_reduction(fight.boss.level)) * fight.boss.attack() * 1.5
-            fight.tank_hp.damage(damage, fight.current_time)
+            self.last_attack = (self.time, 'crushed')
         else:
             fight.stats.hit()
             damage = (1 - fight.tank.get_armor_reduction(fight.boss.level)) * fight.boss.attack()
-            fight.tank_hp.damage(damage, fight.current_time)
+            self.last_attack = (self.time, 'hitted')
 
-        self.time += fight.boss.speed
-        fight.queue.add(self)
+        fight.tank_hp.damage(damage, fight.current_time)
+        self.time += fight.boss.weapon_speed
+        return [self]
+
+    def __repr__(self):
+        return f'<{self.last_attack[0]:.2f}> {self.unit.name} {self.last_attack[1]}'
 
 
 @attrs(slots=True, eq=False)
 class BossAbilityEvent(TimeEvent):
+    unit = attrib(type=Boss)
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
         pass
 
 
-@attrs(slots=True, eq=False)
+@attrs(slots=True, eq=False, repr=False)
+class TankAttackEvent(AttackEvent):
+    unit = attrib(type=Tank)
+    parry_hasted = attrib(type=Tuple, default=())
+
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+        roll = random.uniform(0, 100)
+        if roll < max(9 - fight.tank.attributes.hit, 0):
+            pass
+        elif (roll := roll - max(9 - fight.tank.attributes.hit, 0)) < max(6.5 - fight.tank.attributes.expertise * .25, 0):
+            pass
+        elif (roll := roll - max(6.5 - fight.tank.attributes.expertise * .25, 0)) < max(16 - fight.tank.attributes.expertise * .25, 0):
+            # parry haste
+            fight.queue.parry_haste(self.time, BossAttackEvent)
+            self.parry_hasted = (self.time, )
+        else:
+            pass
+
+        self.time += fight.tank.weapon_speed
+        return [self]
+
+    def __repr__(self):
+        if not self.parry_hasted:
+            return ''
+        ret = f'<{self.parry_hasted[0]:.2f}> I got parried'
+        self.parry_hasted = ()
+        return ret
+
+
+@attrs(slots=True, eq=False, repr=False)
 class HealEvent(TimeEvent):
     heal = attrib(type=Heal)
+    last_heal = attrib(type=Tuple, default=())
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
-        fight.tank_hp.heal(self.heal.apply(), fight.current_time)
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+        if heal := self.heal.apply():
+            effective_heal = fight.tank_hp.heal(heal, fight.current_time)
+            self.last_heal = (self.time, heal, effective_heal)
+
+        if next_heal := self.heal.next():
+            if isinstance(self.heal, REG) and (regrowth := fight.queue.get_hot_event(self.heal.healer.REG_HOT)):
+                # FUCK regrowth
+                fight.queue.remove(regrowth)
+
+            next_time = self.time + next_heal.get_period()
+            return [HealEvent(time=next_time, heal=next_heal)]
+
+        return []
+
+    def __repr__(self):
+        if not self.last_heal:
+            return ''
+        return f'<{self.last_heal[0]:.2f}> {self.heal.name} heals for {self.last_heal[2]} ({self.last_heal[1]})'
 
 
-@attrs(slots=True, eq=False)
-class HoTEvent(TimeEvent):
-    heal = attrib(type=Heal)
-
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
-        pass
-
-
-@attrs(slots=True, eq=False)
+@attrs(slots=True, eq=False, repr=False)
 class HealerEvent(TimeEvent):
     healer = attrib(type=Healer)
+    decision = attrib(type=Tuple, default=())
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> None:
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+        time = self.time
 
         if isinstance(trigger, BossAbilityEvent):
-            HealerEvent.cancel_cast(fight, self.healer)
+            self.cancel_cast()
+            self.decision = (self.time, 'cancel cast')
             self.time += self.move(fight)
-            fight.queue.add(self)
+            return [self]
 
         else:
-            heal = self.healer.decision(fight.tank_hp)
-            self.time += heal.cast_time
-            heal_event = HealEvent(time=self.time, heal=heal)
-            fight.queue.add(heal_event)
-            fight.queue.add(self)
+            if self.healer.casting:
+                # TODO add check spell finish
+                heal_event = HealEvent(time=self.time, heal=self.healer.cast())
+            else:
+                heal_event = None
 
-    @staticmethod
-    def cancel_cast(fight: Fight, healer: Healer):
-        fight.queue.cancel(healer.current_cast())
+            if self.healer.latency:
+                time += self.healer.latency
+
+            next_heal = self.healer.decision(fight.tank_hp)
+
+            if isinstance(next_heal, HoT):
+                tick = time + next_heal.tick_period
+                next_heal_event = HealEvent(time=tick, heal=next_heal)
+
+                if hot_event := fight.queue.get_hot_event(next_heal):
+                    if isinstance(hot_event.heal, LB):
+                        hot_event.heal.reapply()
+                        next_heal_event = None
+                    else:
+                        fight.queue.remove(hot_event)
+
+                time += self.healer.gcd
+            else:
+                next_heal_event = None
+                time += next_heal.cast_time
+
+            # logging
+            self.decision = (self.time, next_heal)
+
+            self.time = time
+            return [i for i in (heal_event, self, next_heal_event) if i]
+
+    def cancel_cast(self):
+        self.healer.casting = None
 
     @staticmethod
     def move(fight: Fight) -> int:
         return fight.queue.last_ability.movement()
 
+    def __repr__(self):
+        return f'<{self.decision[0]:.2f}> {self.healer.name} casts {self.decision[1]}'
+
 
 @attrs(slots=True)
 class Queue:
-    queue = attrib(default=deque(), type=Deque)
-    dict = attrib(default=dict(), type=Dict)
+    queue = attrib(default=Factory(deque), type=Deque)
+    dictionary = attrib(default=Factory(dict), type=Dict)
     last_ability = attrib(default=None, type=BossAbilityEvent)
+    history = attrib(default=Factory(list), type=List)
 
-    def add(self, te: TimeEvent):
-        if te in self.dict:
-            raise AttributeError
-        else:
-            self.dict[te] = te.time
-            insort(self.queue, te)
+    # def __init__(self, queue=None, dictionary=None, last_ability=None, history=None):
+    #     if not queue:
+    #         self.queue = deque()
+    #     else:
+    #         self.queue = queue
+    #     if not dictionary:
+    #         self.dictionary = dict()
+    #     else:
+    #         self.dictionary = dictionary
+    #     self.last_ability = last_ability
+    #     if not history:
+    #         self.history = list()
+    #     else:
+    #         self.history = history
 
-    def next(self):
+    def add(self, lte: List):
+        for te in lte:
+            if te in self.dictionary:
+                raise AttributeError
+            else:
+                self.dictionary[te] = te.time
+                insort(self.queue, te)
+
+    def next(self) -> TimeEvent:
         try:
-            while not (next := self.queue.popleft()) in self.dict:
+            while not (next := self.queue.popleft()) in self.dictionary:
                 pass
         except IndexError:
-            return None
+            raise FightOver('Queue had no more events...')
 
-        del self.dict[next]
+        del self.dictionary[next]
         if isinstance(next, BossAbilityEvent):
             self.last_ability = next
 
         return next
 
-    def cancel(self, e):
-        del self.dict[e]
+    def get_instance(self, event_type: TypeVar) -> TimeEvent:
+        for e in self.queue:
+            if isinstance(e, event_type):
+                return e
+
+    def cancel(self, event: TimeEvent):
+        del self.dictionary[event]
+
+    def remove(self, event: TimeEvent):
+        self.queue.remove(event)
+        self.cancel(event)
 
     def next_time(self):
         return self.queue[0].time
 
+    def parry_haste(self, time: float, attack_type: TypeVar[AttackEvent]):
+        next_attack = self.get_instance(attack_type)
+        previous_attack = next_attack.time - next_attack.unit.weapon_speed
 
+        if time > next_attack.time - next_attack.unit.weapon_speed * .2:
+            pass
+        else:
+            new_attack = min(next_attack.time - next_attack.unit.weapon_speed * .2,
+                             next_attack.time - next_attack.unit.weapon_speed * .4)
+
+            self.remove(next_attack)
+            next_attack.time = new_attack
+            self.add([next_attack])
+
+    def get_hot_event(self, hot: HoT):
+        for e in self.queue:
+            if isinstance(e, HealEvent) and e.heal.healer is hot.healer and \
+                    e.heal is hot:
+                return e
+
+
+@attrs(slots=True)
 class Fight:
+    boss = attrib(type=Boss)
+    tank = attrib(type=Tank)
+    healers = attrib(type=List[Healer])
+    duration = attrib(type=int)
+    queue = attrib(default=Factory(Queue), type=Queue)
+    order = attrib(default=Order.RANDOM, type=Order)
+    tank_hp = attrib(init=False, type=TankHP)
+    current_time = attrib(init=False, default=0, type=float)
+    stats = attrib(init=False, default=Factory(Statistics), type=Statistics)
 
-    def __init__(self, boss: Boss, tank: Tank, healer: Healer, duration,
-                 events: Queue = Queue(), order: Order = Order.RANDOM):
-        self.boss = boss
-        self.tank = tank
-        self.healer = healer
-        self.duration = duration
-        self.order = order
-
-        self.tank_hp = TankHP(tank.hp)
-
-        self.stats = Statistics()
+    def __attrs_post_init__(self):
+        self.tank_hp = TankHP(self.tank.attributes.hp)
         self.stats.set_tank_hp(self.tank_hp)
 
-        self.current_time = 0
-        self.queue = events
+    def initialize(self) -> None:
+        self.queue.add([BossAttackEvent(time=0, unit=self.boss)])
+        self.queue.add([TankAttackEvent(time=0, unit=self.tank)])
+        for healer in self.healers:
+            # casting = healer.decision(self.tank_hp)
+            self.queue.add([HealerEvent(time=-1, healer=healer)])
+        # self.queue.add() TODO tank attacks
 
-    def initialize(self):
-        self.queue.add(BossEvent(0))
-        self.queue.add(HealerEvent(0, self.healer))
+    def statistics(self) -> (Statistics, List):
+        return self.stats, self.queue.history, self
 
-    def finish(self) -> (Statistics, int):
-        return self.stats, self.current_time
+    def run(self) -> None:
+        while True:
+            try:
+                self.next()
+            except FightOver:
+                return
 
     def next(self) -> None:
-        e = self.queue.next()
+        event = self.queue.next()
 
-        self.current_time = e.time
+        self.current_time = event.time
 
         if self.current_time > self.duration:
+            self.queue.history.append(f'Boss conquered!')
             raise FightOver
 
         # current_events = dict()
@@ -174,7 +322,15 @@ class Fight:
             # e = self.events.popleft()
             # current_events[str(e[1].__name__)] = e
 
-        e(self)
+        next_event = event(self)
+
+        # logging
+        if hist := repr(event):
+            self.queue.history.append(hist)
 
         if self.tank_hp.get_hp() == 0:
+            self.queue.history.append(f'Tank died!')
             raise FightOver
+
+        if next_event:
+            self.queue.add(next_event)

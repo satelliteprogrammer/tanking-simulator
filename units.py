@@ -1,4 +1,4 @@
-from heals import Heal
+from heals import Heal, HoT, LB, REG, Shield
 from math import floor
 from random import uniform
 from utils import Stats, TankHP
@@ -162,54 +162,68 @@ class WarriorTank(Tank):
 
 
 class Healer:
-    haste_ratio = 15.77
-    crit_ratio = 22.0769
+    haste_ratio = 15.77 * 100
+    crit_ratio = 22.0769 * 100
 
-    def __init__(self, bh, haste_rating, crit_rating):
+    def __init__(self, name, bh, haste_rating, crit_rating, latency=0):
+        self.name = name
+
         self.bh = bh
         self.haste = haste_rating / self.haste_ratio
         self.crit = crit_rating / self.crit_ratio
 
+        self.casting = None
+        self.gcd = 1.5 / (1 + self.haste)
+        self.latency = latency
+
     def heal(self):
-        pass
+        if self.casting:
+            heal = self.casting.apply()
+            self.casting = None
+            return heal
+        else:
+            return None
 
     def decision(self, tank: TankHP) -> Heal:
         pass
 
-    def current_cast(self):
-        pass
+    def cast(self) -> Heal:
+        spell = self.casting
+        self.casting = None
+        return spell
+
+    def current_cast(self) -> Heal:
+        return self.casting
+
+    def __repr__(self):
+        return f'{self.name} {self.bh}/{self.haste:.2f}/{self.crit:.2f} (bh/haste/crit) is casting {self.casting} ({id(self)})\n'
 
 
 class PaladinHealer(Healer):
     hl_eff = .714
     fol_eff = .429
-    hl_inc = .12
-    fol_inc = .17
+    hl_inc = 1.12
+    fol_inc = 1.17
     hl_inc_crit = .11
     fol_inc_crit = .5
 
-    def __init__(self, bh, haste, crit):
-        super().__init__(bh, haste, crit)
+    def __init__(self, bh, haste_rating, crit_rating, latency=0):
+        super().__init__(bh, haste_rating, crit_rating, latency)
 
-        self.FoL = Heal((458, 513), 1.5, self.fol_eff, self.fol_inc, self.fol_inc_crit, self)
-        self.HL9 = Heal((1619, 1799), 2, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
-
-        self.heal = self.HL9
-
-    def heal(self):
-        return self.heal.apply()
+        self.FoL = Heal('Flash of Light', (458, 513), 1.5, self.fol_eff, self.fol_inc, self.fol_inc_crit, self)
+        self.HL9 = Heal('Holy Light (Rank 9)', (1619, 1799), 2, self.hl_eff, self.hl_inc, self.hl_inc_crit, self)
 
     def decision(self, tank: TankHP) -> Heal:
-        if tank.get_hp() < .8 * tank.max:
-            self.heal = self.HL9
+        if tank.get_hp() < .8 * tank.full:
+            self.casting = self.HL9
         else:
-            self.heal = self.FoL
+            self.casting = self.FoL
 
-        return self.heal
+        return self.casting
 
 
 class DruidHealer(Healer):
-    '''
+    """
     rej, 1x life (before battle)
     light: rejuvenation, 3x lifeblooms, regrowth if low
     medium: always use regrowth or .65/7
@@ -220,18 +234,106 @@ class DruidHealer(Healer):
     LB: the LB ticks are kept with the same initial schedule
         the bloom will happen 7s after the last application
         the have the timer
-    '''
+    """
 
-    healing_touch_eff = 1.2
-    lifebloom_eff = .4114
-    lifebloom_dot_eff = .6216
-    rejuvenation_eff = .96
-    regrowth_eff = .36
-    regrowth_dot_eff = .84
-    swiftmend_rejuvenation_eff = 1
-    tranquility_eff = .93
+    ht_eff = 1.2
+    lb_dh_eff = .3429 * 1.2
+    lb_hot_eff = .5180 * 1.2
+    rej_eff = .8 * 1.2
+    reg_dh_eff = .3 * 1.2
+    reg_hot_eff = .7 * 1.2
+    swiftmend_rej_eff = 1
+    tranq_eff = .73 * 1.2
 
-    def __init__(self, bh, haste_rating, crit_rating):
-        super().__init__(bh, haste_rating, crit_rating)
+    ht_inc = 1.1
+    lb_inc = 1.1
+    rej_inc = 1.1 * 1.15
+    reg_inc = 1.1
+    ht_inc_crit = .03
+    lb_inc_crit = .03
+    reg_inc_crit = .53
 
-        self.LB = Heal
+    MT_healing_init = ('REJ', 'LB', 'LB', 'LB', 'REG', None, None)
+    MT_healing = (MT_healing_init, 'LB', 'REJ', 'REG', None, 'LB', None, None, None)
+    OT_healing_init = ('REJ', None, 'LB', None, 'LB', None)
+    OT_healing = (OT_healing_init, 'LB', 'REJ', None, None, 'LB', None, None, None)
+
+    def __init__(self, bh, haste_rating, crit_rating, latency=0, strategy='MT_healing'):
+        super().__init__(bh, haste_rating, crit_rating, latency)
+
+        self.HT = Heal('Healing Touch', (2707, 3197), 3, self.ht_eff, self.ht_inc, self.ht_inc_crit, self)
+        self.LB = LB('Lifebloom', 273, 0, self.lb_hot_eff, self.lb_inc, self, stack=3, duration=7, tick_period=1)
+        self.LB_HEAL = Heal('Lifebloom blooms', (600, 600), 0, self.lb_dh_eff, self.lb_inc, self.lb_inc_crit, self)
+        self.REG_HOT = HoT('Regrowth', 1274, 0, self.reg_hot_eff, self.reg_inc, self, stack=1, duration=21, tick_period=3)
+        self.REG = REG('Regrowth', (1215, 1355), 2, self.reg_dh_eff, self.reg_inc, self.reg_inc_crit, self)
+        self.REJ = HoT('Rejuvenation', 1060, 0, self.rej_eff, self.rej_inc, self, stack=1, duration=12, tick_period=3)
+
+        self.empty = Heal('Global CD', (0, 0), 0, 0, 0, 0, self)
+
+        if strategy == 'MT_healing':
+            self.strategy = self.MT_healing
+        elif strategy == 'OT_healing':
+            self.strategy = self.OT_healing
+
+        self.init = True
+        self.counter = 0
+
+    def decision(self, tank: TankHP) -> Heal:
+        spell = None
+        if self.init:
+            try:
+                spell = self.strategy[0][self.counter]
+                self.counter += 1
+            except IndexError:
+                self.init = False
+                self.counter = 1
+
+        if not self.init:
+            spell = self.strategy[self.counter]
+            self.counter += 1
+            if self.counter > 8:
+                self.counter = 1
+
+        if spell:
+            casting = eval("self." + spell)
+            if not isinstance(casting, HoT):
+                self.casting = casting
+            else:
+                casting.reset()
+        else:
+            casting = self.empty
+
+        return casting
+
+
+class ShamanHealer(Healer):
+    """
+    Default strategy is getting 1st/2nd jumps of the chain heal. This takes into consideration that the rshaman
+    must be healing the melees
+    """
+
+    hw_eff = .857 * 1.1
+    lhw_eff = .428 * 1.1
+    ch_eff = .714 * 1.1 * 1.2
+    es_eff = .286
+
+    hw_inc = 1.1
+    lhw_inc = 1.1
+    ch_inc = 1.1 * 1.2
+
+    hw_inc_crit = .05
+    lhw_inc_crit = .05
+    ch_inc_crit = .05
+
+    def __init__(self, name, bh, haste_rating, crit_rating):
+        super().__init__(name, bh, haste_rating, crit_rating)
+
+        self.HW = Heal('Healing Wave', (2134, 2437), 2.5, self.hw_eff, self.hw_inc, self.hw_inc_crit, self)
+        self.LHW = Heal('Lesser Healing Wave', (1039, 1186), 1, self.lhw_eff, self.lhw_inc, self.lhw_inc_crit, self)
+        self.CH5 = Heal('Chain Heal (Rank 5)', (826, 943), 2, self.ch_eff, self.ch_inc, self.ch_inc_crit, self)
+        self.CH4 = Heal('Chain Heal (Rank 4)', (605, 692), 2, self.ch_eff, self.ch_inc, self.ch_inc_crit, self)
+        self.ES = Shield('Earth Shield', 270, 0, self.es_eff, self)
+
+    def decision(self, tank: TankHP) -> Heal:
+        self.casting = self.CH4
+        return self.casting

@@ -18,26 +18,32 @@ class Stats:
     block: float
     block_value: int
     armor: int
-    hit: int
-    expertise: int
+    hit: float
+    expertise: float
+    hp: float
 
 
 @attrs(slots=True, auto_attribs=True, init=False)
 class TankHP:
-    max: int
+    full: int
     _hp: List[Tuple]
 
     def __init__(self, hp):
-        self.max = hp
+        self.full = hp
         self._hp = [(0.0, hp)]
 
     def damage(self, damage: int, time: float):
-        self._hp.append((time, max(self._hp[-1][1] - damage, 0)))
+        self._hp.append((time, max(self.get_hp() - damage, 0)))
 
-    def heal(self, heal: int, time: float):
-        if self.max == self._hp[-1][1]:
-            return
-        self._hp.append((time, min(self._hp[-1][1] + heal, self.max)))
+    def heal(self, heal: int, time: float) -> int:
+        """ :returns effective heal"""
+
+        if (hp := self.get_hp() + heal) < self.full:
+            self._hp.append((time, hp))
+            return heal
+        else:
+            self._hp.append((time, self.full))
+            return heal - hp + self.full
 
     def get_hp(self):
         return self._hp[-1][1]
