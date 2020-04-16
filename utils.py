@@ -48,14 +48,14 @@ class TankHP:
 
 @attrs(slots=True)
 class Statistics:
-    _missed = attrib(default=0, type=int)
-    _dodged = attrib(default=0, type=int)
-    _parried = attrib(default=0, type=int)
-    _blocked = attrib(default=0, type=int)
-    _crushed = attrib(default=0, type=int)
-    _hitted = attrib(default=0, type=int)
-    _critical_events = attrib(default=0, type=int)
-    _hp = attrib(default=Factory(tuple), type=Factory(TankHP))
+    _missed = attrib(init=False, default=0, type=int)
+    _dodged = attrib(init=False, default=0, type=int)
+    _parried = attrib(init=False, default=0, type=int)
+    _blocked = attrib(init=False, default=0, type=int)
+    _crushed = attrib(init=False, default=0, type=int)
+    _hitted = attrib(init=False, default=0, type=int)
+    _critical_events = attrib(init=False, default=0, type=int)
+    _hp = attrib(init=False, default=None, type=TankHP)
 
     def miss(self):
         self._missed += 1
