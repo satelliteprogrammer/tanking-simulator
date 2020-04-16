@@ -8,11 +8,11 @@ import talents as t
 
 class Boss:
 
-    def __init__(self, name, level, damage, speed, school, abilities=None):
+    def __init__(self, name, level, damage, weapon_speed, school, abilities=None):
         self.name = name
         self.level = level
         self.damage = damage
-        self.speed = speed
+        self.weapon_speed = weapon_speed
         self.school = school
         self.abilities = abilities
 
@@ -37,7 +37,7 @@ class Tank:
     https://wowwiki.fandom.com/wiki/Armor?oldid=1646912
     https://wowwiki.fandom.com/wiki/Combat_rating_system?oldid=1597988
     """
-    base_defense = 370
+    base_defense = 350
     base_miss = 5
     base_dodge = 0
     base_parry = 5
@@ -50,15 +50,20 @@ class Tank:
     dodge_dodge_ratio = 18.9231
     parry_parry_ratio = 23.6538461538462
     block_block_ratio = 7.8846153846
-    def_def_ratio = 2.36
+    def_def_ratio = 2.3654
     base_dr = 0
+    base_hp = 0  # TODO
+
+    hit_ratio = 15.7692
+    expertise_ratio = 3.9423
 
     def __init__(self, stamina: int, agility: int, strength: int, defense_rating: int, dodge_rating: int,
-                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
-                 speed: float, talents: tuple = (), buffs: tuple = ()):
+                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit_rating: int,
+                 expertise_rating: int, weapon_speed: float, talents: tuple = (), buffs: tuple = ()):
 
         self.attributes = Stats(stamina, agility, strength, self.base_defense, self.base_miss, self.base_dodge,
-                                self.base_parry, self.base_block, self.base_block_value, armor, hit, expertise)
+                                self.base_parry, self.base_block, self.base_block_value, armor,
+                                hit_rating/self.hit_ratio, floor(expertise_rating/self.expertise_ratio), self.base_hp)
 
         self.buffs = buffs
         for buff in buffs:
@@ -82,9 +87,10 @@ class Tank:
             self.attributes.defense, 73)
         self.attributes.block_value += block_value
 
-        self.speed = speed
+        self.weapon_speed = weapon_speed
 
-        self.hp = floor(min(self.attributes.stamina, 20) + (self.attributes.stamina - min(self.attributes.stamina, 20)) * 10)
+        self.attributes.hp += min(self.attributes.stamina, 20) + (self.attributes.stamina - min(self.attributes.stamina, 20)) * 10
+        self.attributes.hp = floor(self.attributes.hp)
 
     @staticmethod
     def __defense_contribution(defense: float, level: int) -> float:
@@ -92,13 +98,13 @@ class Tank:
 
     def get_armor_reduction(self, level: int) -> float:
         """attacker 60+: DR = Armor / (Armor + 400 + 85 * (AttackerLevel + 4.5 * (AttackerLevel - 59)))"""
-        return self.attributes.armor / (self.attributes.armor + 467.5 * level - 22167.5)
+        return min(.75, self.attributes.armor / (self.attributes.armor + 467.5 * level - 22167.5))
 
     def get_block_reduction(self) -> int:
         pass
 
     def attack(self):
-        return self.speed
+        return self.weapon_speed
 
     def __repr__(self):
         stats = self.attributes
@@ -106,7 +112,7 @@ class Tank:
               'defense: {}, miss: {}%, dodge: {}%, parry: {}%, block: {}%\n' \
               'hp = {}\nhard avoidance = {}%\ndamage mitigation = {}%' \
               ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense, stats.miss,
-                        stats.dodge, stats.parry, stats.block, self.hp,
+                        stats.dodge, stats.parry, stats.block, stats.hp,
                         stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73) * 100)
         return str
 
@@ -116,11 +122,11 @@ class PaladinTank(Tank):
     agi_dodge_ratio = 25
 
     def __init__(self, stamina: int, agility: int, strength: int, defense_rating: int, dodge_rating: int,
-                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
-                 speed: float, talents: tuple = (), buffs: tuple = ()):
+                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit_rating: int,
+                 expertise_rating: int, weapon_speed: float, talents: tuple = (), buffs: tuple = ()):
 
         super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
-                         block_value, armor, hit, expertise, speed, talents, buffs)
+                         block_value, armor, hit_rating, expertise_rating, weapon_speed, talents, buffs)
 
         self.attributes.block += 30
 
@@ -138,11 +144,11 @@ class WarriorTank(Tank):
     agi_dodge_ratio = 30
 
     def __init__(self, stamina: int, agility: int, strength: int, defense_rating: int, dodge_rating: int,
-                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit: int, expertise: int,
-                 speed: float, talents: tuple = (), buffs: tuple = ()):
+                 parry_rating: int, block_rating: int, block_value: int, armor: int, hit_rating: int,
+                 expertise_rating: int, weapon_speed: float, talents: tuple = (), buffs: tuple = ()):
 
         super().__init__(stamina, agility, strength, defense_rating, dodge_rating, parry_rating, block_rating,
-                         block_value, armor, hit, expertise, speed, talents, buffs)
+                         block_value, armor, hit_rating, expertise_rating, weapon_speed, talents, buffs)
 
         self.attributes.block += 75
 
