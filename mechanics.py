@@ -80,7 +80,7 @@ class HealerEvent(TimeEvent):
             if self.healer.latency:
                 self.time += self.healer.latency
 
-            next_heal = self.healer.decision(fight.tank_hp)
+            next_heal = self.healer.decision(self.time, fight.tank_hp)
 
             if next_heal:
                 self.decision = (self.time, next_heal)
