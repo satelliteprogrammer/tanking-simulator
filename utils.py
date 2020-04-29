@@ -7,7 +7,7 @@ from typing import Deque, Dict, List, Tuple
 
 
 @attrs(slots=True, auto_attribs=True)
-class Stats:
+class Attributes:
     stamina: float
     agility: float
     strength: float
@@ -23,29 +23,44 @@ class Stats:
     hp: float
 
 
-@attrs(slots=True, auto_attribs=True, init=False)
+@attrs(slots=True)
 class TankHP:
-    full: int
-    _hp: List[Tuple]
+    """
+    Shield: if the shield value is not entirely consumed by the damage taken, PoM and ES don't proc
+    """
+    full = attrib(type=int)
+    _shield = attrib(default=0, type=int)
+    _hp = attrib(type=List[Tuple[float, int, int]], init=False)
 
-    def __init__(self, hp):
-        self.full = hp
-        self._hp = [(0.0, hp)]
+    def __attrs_post_init__(self):
+        self._hp = [(0.0, self.full, self._shield)]
 
     def damage(self, damage: int, time: float):
-        self._hp.append((time, max(self.get_hp() - damage, 0)))
+        if self._shield:
+            if remainder := damage - self._shield > 0:
+                self._shield = 0
+                self._hp.append((time, self.get_hp() - remainder, self._shield))
+            else:
+                self._shield -= damage  # TODO
+                self._hp.append((time, self.get_hp(), self._shield))
+        else:
+            self._hp.append((time, self.get_hp() - damage, self._shield))
 
     def heal(self, heal: int, time: float) -> int:
         """ :returns effective heal"""
 
         if (hp := self.get_hp() + heal) < self.full:
-            self._hp.append((time, hp))
+            self._hp.append((time, hp, self._shield))
             return heal
         else:
-            self._hp.append((time, self.full))
+            self._hp.append((time, self.full, self._shield))
             return heal - hp + self.full
 
-    def get_hp(self):
+    def shield(self, shield, time: float):
+        self._shield += shield.apply()
+        self._hp.append((time, self.get_hp(), self._shield))
+
+    def get_hp(self) -> int:
         return self._hp[-1][1]
 
     def get_fight(self):

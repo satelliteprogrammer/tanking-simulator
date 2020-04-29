@@ -3,8 +3,9 @@ from abilities import Ability
 from attr import attrs, attrib, Factory
 from bisect import insort
 from collections import deque, namedtuple
-from heals import Heal, HoT, LB, REG
-from units import Boss, Healer, Tank
+from heals import Heal, HoT, LB, REG, REGHoT
+from healers import Healer
+from units import Boss, Tank
 from utils import FightOver, Order, Statistics, TankHP
 from typing import Deque, Dict, List, TypeVar, Tuple
 import random
@@ -21,6 +22,103 @@ class TimeEvent:
         return self.time < other.time
 
 
+@attrs(slots=True, eq=False, repr=False)
+class HealEvent(TimeEvent):
+    heal = attrib(type=Heal)
+    last_heal = attrib(type=Tuple, default=())
+
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+        if heal := self.heal.apply():
+            effective_heal = fight.tank_hp.heal(heal, fight.current_time)
+            self.last_heal = (self.time, heal, effective_heal)
+
+        if next_heal := self.heal.next():
+            if isinstance(self.heal, REG) and (regrowth := fight.queue.get_hot_event(REGHoT)):
+                # FUCK regrowth
+                fight.queue.remove(regrowth)
+
+            if isinstance(next_heal, HoT):
+                next_time = self.time + next_heal._tick_period
+            else:
+                next_time = self.time
+            return [HealEvent(time=next_time, heal=next_heal)]
+
+        return []
+
+    def __repr__(self):
+        if not self.last_heal:
+            return ''
+        return f'<{self.last_heal[0]:.2f}> {self.heal._name} heals for {self.last_heal[2]} ({self.last_heal[1]})'
+
+
+@attrs(slots=True, eq=False, repr=False)
+class HealerEvent(TimeEvent):
+    healer = attrib(type=Healer)
+    casting = attrib(type=Heal, default=None)
+    decision = attrib(type=Tuple, default=())
+
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+        next_events = [self]
+
+        if isinstance(trigger, BossAbilityEvent):
+            self.cancel_cast()
+            self.decision = (self.time, 'cancel cast')
+            self.time += self.move(fight)
+            return [self]
+
+        else:
+            if self.casting:
+                # TODO add check spell finish
+                if isinstance(self.casting, HoT):
+                    if hot_event := fight.queue.get_hot_event(self.casting):
+                        fight.queue.remove(hot_event)
+                    next_events.append(HealEvent(time=self.time+self.casting.tick_period, heal=self.casting))
+                else:
+                    next_events.append(HealEvent(time=self.time, heal=self.casting))
+                self.casting = None
+
+            if self.healer.latency:
+                self.time += self.healer.latency
+
+            next_heal = self.healer.decision(fight.tank_hp)
+
+            if next_heal:
+                self.decision = (self.time, next_heal)
+
+                if next_heal.cast_time:
+                    self.casting = next_heal
+                    self.time += self.casting.cast_time
+
+                else:
+                    if isinstance(next_heal, HoT):
+                        if hot_event := fight.queue.get_hot_event(next_heal):
+                            if isinstance(lb := hot_event.heal, LB):
+                                lb.healer = next_heal.healer
+                                lb.reapply()
+                            else:
+                                fight.queue.remove(hot_event)
+                                next_events.append(HealEvent(time=self.time+next_heal._tick_period, heal=next_heal))
+                        else:
+                            next_events.append(HealEvent(time=self.time + next_heal._tick_period, heal=next_heal))
+                    self.time += self.healer.gcd()
+
+            else:
+                self.time += self.healer.gcd()
+                self.decision = (self.time, 'nothing')
+
+            return next_events
+
+    def cancel_cast(self):
+        self.casting = None
+
+    @staticmethod
+    def move(fight: Fight) -> int:
+        return fight.queue.last_ability.movement()
+
+    def __repr__(self):
+        return f'<{self.decision[0]:.2f}> {self.healer.name} casts {self.decision[1]}'
+
+
 @attrs(slots=True, eq=False)
 class AttackEvent(TimeEvent):
     unit = attrib()
@@ -35,6 +133,7 @@ class BossAttackEvent(AttackEvent):
     last_attack = attrib(type=Tuple, default=())
 
     def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List[BossAttackEvent]:
+        next_events = [self]
 
         roll = random.uniform(0, 100)
         if roll < fight.tank.attributes.miss:
@@ -63,9 +162,12 @@ class BossAttackEvent(AttackEvent):
             damage = (1 - fight.tank.get_armor_reduction(fight.boss.level)) * fight.boss.attack()
             self.last_attack = (self.time, 'hitted')
 
+        if damage:
+            next_events.extend([HealEvent(time=self.time, heal=heal) for heal in fight.reactive_heals])
+
         fight.tank_hp.damage(damage, fight.current_time)
         self.time += fight.boss.weapon_speed
-        return [self]
+        return next_events
 
     def __repr__(self):
         return f'<{self.last_attack[0]:.2f}> {self.unit.name} {self.last_attack[1]}'
@@ -84,7 +186,7 @@ class TankAttackEvent(AttackEvent):
     unit = attrib(type=Tank)
     parry_hasted = attrib(type=Tuple, default=())
 
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
+    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List[TankAttackEvent]:
         roll = random.uniform(0, 100)
         if roll < max(9 - fight.tank.attributes.hit, 0):
             pass
@@ -106,91 +208,6 @@ class TankAttackEvent(AttackEvent):
         ret = f'<{self.parry_hasted[0]:.2f}> I got parried'
         self.parry_hasted = ()
         return ret
-
-
-@attrs(slots=True, eq=False, repr=False)
-class HealEvent(TimeEvent):
-    heal = attrib(type=Heal)
-    last_heal = attrib(type=Tuple, default=())
-
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
-        if heal := self.heal.apply():
-            effective_heal = fight.tank_hp.heal(heal, fight.current_time)
-            self.last_heal = (self.time, heal, effective_heal)
-
-        if next_heal := self.heal.next():
-            if isinstance(self.heal, REG) and (regrowth := fight.queue.get_hot_event(self.heal.healer.REG_HOT)):
-                # FUCK regrowth
-                fight.queue.remove(regrowth)
-
-            next_time = self.time + next_heal.get_period()
-            return [HealEvent(time=next_time, heal=next_heal)]
-
-        return []
-
-    def __repr__(self):
-        if not self.last_heal:
-            return ''
-        return f'<{self.last_heal[0]:.2f}> {self.heal.name} heals for {self.last_heal[2]} ({self.last_heal[1]})'
-
-
-@attrs(slots=True, eq=False, repr=False)
-class HealerEvent(TimeEvent):
-    healer = attrib(type=Healer)
-    decision = attrib(type=Tuple, default=())
-
-    def __call__(self, fight: Fight, trigger: TimeEvent = None) -> List:
-        time = self.time
-
-        if isinstance(trigger, BossAbilityEvent):
-            self.cancel_cast()
-            self.decision = (self.time, 'cancel cast')
-            self.time += self.move(fight)
-            return [self]
-
-        else:
-            if self.healer.casting:
-                # TODO add check spell finish
-                heal_event = HealEvent(time=self.time, heal=self.healer.cast())
-            else:
-                heal_event = None
-
-            if self.healer.latency:
-                time += self.healer.latency
-
-            next_heal = self.healer.decision(fight.tank_hp)
-
-            if isinstance(next_heal, HoT):
-                tick = time + next_heal.tick_period
-                next_heal_event = HealEvent(time=tick, heal=next_heal)
-
-                if hot_event := fight.queue.get_hot_event(next_heal):
-                    if isinstance(hot_event.heal, LB):
-                        hot_event.heal.reapply()
-                        next_heal_event = None
-                    else:
-                        fight.queue.remove(hot_event)
-
-                time += self.healer.gcd
-            else:
-                next_heal_event = None
-                time += next_heal.cast_time
-
-            # logging
-            self.decision = (self.time, next_heal)
-
-            self.time = time
-            return [i for i in (heal_event, self, next_heal_event) if i]
-
-    def cancel_cast(self):
-        self.healer.casting = None
-
-    @staticmethod
-    def move(fight: Fight) -> int:
-        return fight.queue.last_ability.movement()
-
-    def __repr__(self):
-        return f'<{self.decision[0]:.2f}> {self.healer.name} casts {self.decision[1]}'
 
 
 @attrs(slots=True)
@@ -266,9 +283,8 @@ class Queue:
             self.add([next_attack])
 
     def get_hot_event(self, hot: HoT):
-        for e in self.queue:
-            if isinstance(e, HealEvent) and e.heal.healer is hot.healer and \
-                    e.heal is hot:
+        for e in reversed(self.queue):
+            if isinstance(e, HealEvent) and e.heal == hot:
                 return e
 
 
@@ -281,6 +297,7 @@ class Fight:
     queue = attrib(default=Factory(Queue), type=Queue)
     order = attrib(default=Order.RANDOM, type=Order)
     tank_hp = attrib(init=False, type=TankHP)
+    reactive_heals = attrib(init=False, default=list())
     current_time = attrib(init=False, default=0, type=float)
     stats = attrib(init=False, default=Factory(Statistics), type=Statistics)
 
@@ -328,7 +345,7 @@ class Fight:
         if hist := repr(event):
             self.queue.history.append(hist)
 
-        if self.tank_hp.get_hp() == 0:
+        if self.tank_hp.get_hp() <= 0:
             self.queue.history.append(f'Tank died!')
             raise FightOver
 

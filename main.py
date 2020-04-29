@@ -1,4 +1,5 @@
 from __future__ import annotations
+from healers import PaladinHealer, DruidHealer
 from mechanics import Fight
 import buffs as b
 import matplotlib.pyplot as plt
@@ -48,37 +49,41 @@ def main():
     '''
     Healer:                     bh,   haste, crit
     '''
-    eydel = units.PaladinHealer('Eydel', 2500, 0, 400)
-    epiphron = units.DruidHealer('Epiphron', 2200, 191, 242)
-    mawka = units.DruidHealer('Mawka', 2200, 191, 242)
+    eydel = PaladinHealer('Eydel', 2500, 0, 400)
+    epiphron = DruidHealer('Epiphron', 2200, 191, 242)
+    mawka = DruidHealer('Mawka', 2200, 191, 242)
 
-    R = 10000
+    R = 100
     r = 0
 
     start = time.time()
 
-    # results = list()
-    # while r < R:
-    #     events = deque()
-    #     result = run(encounter.Fight(boss1, tank1, heal1, 480, events))
-    #     # print(result)
-    #     results.append(result)
-    #
-    #     r += 1
+    results = list()
+    while r < R:
+        f = Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2, 'physical'),
+                  pumpkinpie,
+                  [PaladinHealer('Eydel', 2500, 0, 400),
+                   DruidHealer('Epiphron', 2200, 191, 242)],
+                  duration=480)
+        result = run(f)
+        # print(result)
+        results.append(result)
 
-    with mp.Pool(mp.cpu_count()) as pool:
-        results = pool.map(run, [Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2.0, 'physical'),
-                                       pumpkinpie,
-                                       [units.PaladinHealer('Eydel', 2500, 0, 400),
-                                        units.DruidHealer('Epiphron', 2200, 191, 242)],
-                                       duration=480) for i in range(R)])
+        r += 1
+
+    # with mp.Pool(mp.cpu_count()) as pool:
+    #     results = pool.map(run, [Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2.0, 'physical'),
+    #                                    pumpkinpie,
+    #                                    [PaladinHealer('Eydel', 2500, 0, 400),
+    #                                     DruidHealer('Epiphron', 2200, 191, 242)],
+    #                                    duration=480) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
     deaths = []
     missed, dodged, parried, blocked, crushed, hit, totals, critical_events = ([] for i in range(8))
     for i, result in enumerate(results):
-        if result[0].get_tank_hp().get_hp():
+        if result[0].get_tank_hp().get_hp() <= 0:
             deaths.append(i)
         misses, dodges, parries, blocks, crushes, hits = result[0].get_stats()
         total = misses + dodges + parries + blocks + crushes + hits
@@ -99,7 +104,7 @@ def main():
     print('hit mean: {} variance: {}'.format(stat.mean(hit), stat.stdev(hit)))
     print('critical_events mean: {} variance: {}'.format(stat.mean(critical_events), stat.stdev(critical_events)))
 
-    print('Survived {} out of {}!'.format(R - len(deaths), R))
+    print('{:.2f}% survival chance (survived {} out of {} tries)!'.format((R - len(deaths))/R * 100, R - len(deaths), R))
 
     # t = [hp[0] for hp in results[0][0].get_tank_hp().get_fight()]
     # hp = [hp[1] for hp in results[0][0].get_tank_hp().get_fight()]
@@ -107,6 +112,10 @@ def main():
     # plt.show()
 
     with open('history.log', 'w') as f:
+        if not deaths:
+            for line in results[0][1]:
+                f.write(repr(line) + '\n')
+            graph(results[0][0].get_tank_hp())
         for death in deaths:
             try:
                 death_recount = results[death][1][-40:]
@@ -126,6 +135,13 @@ def main():
     # plt.plot(t, hp)
     # plt.show()
 
+
+def graph(tank_hp):
+    fight = tank_hp.get_fight()
+    time = [f[0] for f in fight]
+    hp = [f[1] for f in fight]
+    plt.plot(time, hp)
+    plt.show()
 
 if __name__ == '__main__':
     main()
