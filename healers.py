@@ -6,9 +6,15 @@ from utils import TankHP
 
 @attrs(slots=True, repr=False, eq=False)
 class PaladinHealer(Healer):
+    last_df = attrib(default=0, type=float)
+
+    divine_favor = 120
 
     def decision(self, time: float, tank: TankHP):
-        if tank.get_hp() < .8 * tank.full:
+        if tank.get_hp() < .4 * tank.full and (self.last_df == 0 or time > self.last_df + self.divine_favor):
+            self.last_df = time
+            return HL11(healer=self, increased_crit=1)
+        elif tank.get_hp() < .8 * tank.full:
             return HL9(healer=self)
         else:
             return FoL(healer=self)
