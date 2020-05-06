@@ -270,17 +270,18 @@ class Queue:
 
     def parry_haste(self, time: float, attack_type: TypeVar[AttackEvent]):
         next_attack = self.get_instance(attack_type)
-        previous_attack = next_attack.time - next_attack.unit.weapon_speed
+        ws = next_attack.unit.weapon_speed
 
-        if time > next_attack.time - next_attack.unit.weapon_speed * .2:
-            pass
+        if time < next_attack.time - .6*ws:
+            new_time = next_attack.time - .4 * ws
+        elif next_attack.time - .6*ws < time < next_attack.time - .2*ws:
+            new_time = next_attack.time - .2 * ws
         else:
-            new_attack = min(next_attack.time - next_attack.unit.weapon_speed * .2,
-                             next_attack.time - next_attack.unit.weapon_speed * .4)
+            return
 
-            self.remove(next_attack)
-            next_attack.time = new_attack
-            self.add([next_attack])
+        self.remove(next_attack)
+        next_attack.time = new_time
+        self.add([next_attack])
 
     def get_hot_event(self, hot: HoT):
         for e in reversed(self.queue):
