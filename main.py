@@ -1,13 +1,14 @@
 from __future__ import annotations
-from healers import PaladinHealer, DruidHealer
-from mechanics import Fight
-import buffs as b
+from data.healers import PaladinHealer, DruidHealer
+from simulator.mechanics import Fight
+import data.buffs as b
+import data.talents as ta
+import simulator.units as units
+
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import statistics as stat
-import talents as ta
 import time
-import units
 
 
 def run(fight: Fight):

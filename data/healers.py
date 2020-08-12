@@ -1,7 +1,7 @@
 from attr import attrs, attrib
-from heals import *
-from units import Healer
-from utils import TankHP
+from .heals import *
+from simulator.units import Healer
+from simulator.utils import TankHP
 
 
 @attrs(slots=True, repr=False, eq=False)
