@@ -1,15 +1,15 @@
 from __future__ import annotations
-from abilities import Ability
 from attr import attrs, attrib, Factory
 from bisect import insort
 from collections import deque, namedtuple
-from heals import Heal, HoT, LB, REG, REGHoT
-from healers import Healer
-from units import Boss, Tank
-from utils import FightOver, Order, Statistics, TankHP
 from typing import Deque, Dict, List, TypeVar, Tuple
 import random
 
+from data.abilities import Ability
+from data.heals import Heal, HoT, LB, REG, REGHoT
+from data.healers import Healer
+from .units import Boss, Tank
+from .utils import FightOver, Order, Statistics, TankHP
 
 @attrs(slots=True, eq=False)
 class TimeEvent:

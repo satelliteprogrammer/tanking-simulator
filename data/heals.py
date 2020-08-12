@@ -2,9 +2,9 @@ from attr import attrs, attrib
 from math import floor
 from random import random, uniform
 from statistics import mean
-from units import Healer
 from typing import Tuple
 
+from simulator.units import Healer
 
 @attrs(slots=True, repr=False, eq=False)
 class Heal:

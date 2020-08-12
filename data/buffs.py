@@ -1,4 +1,4 @@
-from utils import Attributes
+from simulator.utils import Attributes
 
 
 class Buff:

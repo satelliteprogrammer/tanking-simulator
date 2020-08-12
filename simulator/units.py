@@ -1,9 +1,10 @@
 from attr import attrs, attrib
 from math import floor
 from random import uniform
-from utils import Attributes, TankHP
-import buffs as b
-import talents as t
+
+from .utils import Attributes, TankHP
+import data.buffs as b
+import data.talents as t
 
 
 class Boss:
