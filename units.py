@@ -110,11 +110,11 @@ class Tank:
 
     def __repr__(self):
         stats = self.attributes
-        str = 'Paladin Tank\nstamina: {}, agility: {}, strength: {}, armor: {}\n' \
-              'defense: {}, miss: {}%, dodge: {}%, parry: {}%, block: {}%\n' \
-              'hp = {}\nhard avoidance = {}%\ndamage mitigation = {}%' \
-              ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense, stats.miss,
-                        stats.dodge, stats.parry, stats.block, stats.hp,
+        str = 'Tank\nstamina: {:.0f}, agility: {:.0f}, strength: {:.0f}, armor: {:.0f}, defense: {:.0f},\n' \
+              'miss: {:.2f}%, dodge: {:.2f}%, parry: {:.2f}%, block: {:.2f}%\n' \
+              'hp = {}\nhard avoidance = {:.2f}%\ndamage mitigation = {:.2f}%' \
+              ''.format(stats.stamina, stats.agility, stats.strength, stats.armor, stats.defense,
+                        stats.miss, stats.dodge, stats.parry, stats.block, stats.hp,
                         stats.miss + stats.dodge + stats.parry, self.get_armor_reduction(73) * 100)
         return str
 

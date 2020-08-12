@@ -53,30 +53,30 @@ def main():
     epiphron = DruidHealer('Epiphron', 2200, 191, 242)
     mawka = DruidHealer('Mawka', 2200, 191, 242)
 
-    R = 100
+    R = 10000
     r = 0
 
     start = time.time()
 
-    results = list()
-    while r < R:
-        f = Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2, 'physical'),
-                  pumpkinpie,
-                  [PaladinHealer('Eydel', 2500, 0, 400),
-                   DruidHealer('Epiphron', 2200, 191, 242)],
-                  duration=480)
-        result = run(f)
-        # print(result)
-        results.append(result)
+    # results = list()
+    # while r < R:
+    #     f = Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2, 'physical'),
+    #               pumpkinpie,
+    #               [PaladinHealer('Eydel', 2500, 0, 400),
+    #                DruidHealer('Epiphron', 2200, 191, 242)],
+    #               duration=480)
+    #     result = run(f)
+    #     # print(result)
+    #     results.append(result)
 
-        r += 1
+    #     r += 1
 
-    # with mp.Pool(mp.cpu_count()) as pool:
-    #     results = pool.map(run, [Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2.0, 'physical'),
-    #                                    pumpkinpie,
-    #                                    [PaladinHealer('Eydel', 2500, 0, 400),
-    #                                     DruidHealer('Epiphron', 2200, 191, 242)],
-    #                                    duration=480) for i in range(R)])
+    with mp.Pool(mp.cpu_count()) as pool:
+        results = pool.map(run, [Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2.0, 'physical'),
+                                       pumpkinpie,
+                                       [PaladinHealer('Eydel', 2500, 0, 400),
+                                        DruidHealer('Epiphron', 2200, 191, 242)],
+                                       duration=480) for i in range(R)])
 
     print('Elapsed time {}s'.format(time.time() - start))
 
@@ -116,13 +116,16 @@ def main():
             for line in results[0][1]:
                 f.write(repr(line) + '\n')
             graph(results[0][0].get_tank_hp())
-        for death in deaths:
-            try:
-                death_recount = results[death][1][-40:]
-            except IndexError:
-                death_recount = results[death][1]
-            for line in death_recount:
-                f.write(repr(line) + '\n')
+            print('First simulation written to history.log')
+        else:
+            for death in deaths:
+                try:
+                    death_recount = results[death][1][-40:]
+                except IndexError:
+                    death_recount = results[death][1]
+                for line in death_recount:
+                    f.write(repr(line) + '\n')
+            print('All death recounts written to history.log')
 
     # if deaths:
     #     time = [hp[0] for hp in results[deaths[0]][8].hp]
