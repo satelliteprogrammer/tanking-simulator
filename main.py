@@ -55,10 +55,12 @@ def main():
     mawka = DruidHealer('Mawka', 2200, 191, 242)
 
     R = 10000
-    r = 0
+
+    print(f'Running {R} runs')
 
     start = time.time()
 
+    # r = 0
     # results = list()
     # while r < R:
     #     f = Fight(units.Boss('Sathrovarr', 73, [24000, 26000], 2, 'physical'),
